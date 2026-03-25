@@ -3,58 +3,70 @@ import os
 from openai import AsyncOpenAI
 
 from llm.base import BaseLLMProvider
-from search.base import SearchResult
+from llm.models import NewsResult, Source
 
-_SYSTEM_PROMPT = (
-    "You are a financial news summarizer bot. You will be given a stock ticker "
-    "and a set of recent news headlines/snippets from trusted financial news sources. "
-    "Your job is to produce a VERY brief, headline-style summary (2-3 short bullet "
-    "points max) of what's happening with this stock. Be concise — think Bloomberg "
-    "terminal brevity. Do not add disclaimers or caveats. Do not make up information "
-    "not present in the provided snippets."
+_INSTRUCTIONS = (
+    "You are a financial news summarizer bot. "
+    "Search reuters.com, finance.yahoo.com, and investing.com for recent news "
+    "about the given stock ticker. "
+    "Produce a VERY brief, headline-style summary (2-3 short bullet points max) "
+    "of what's happening with this stock. "
+    "Be concise — think Bloomberg terminal brevity. "
+    "Do not add disclaimers or caveats."
 )
 
 
 class OpenAIProvider(BaseLLMProvider):
-    """LLM provider backed by the OpenAI API."""
+    """LLM provider backed by the OpenAI Responses API with built-in web search."""
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self._client = AsyncOpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"])
-        self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4")
+        self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-search-preview")
 
-    async def generate(self, prompt: str) -> str:
-        response = await self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        if not response.choices:
-            return ""
-        return response.choices[0].message.content or ""
+    async def search_and_summarize(self, ticker: str) -> NewsResult:
+        """Search the web for news about *ticker* and return a summary with sources.
 
-    async def summarize_news(
-        self, ticker: str, search_results: list[SearchResult]
-    ) -> str:
-        """Produce a terse bullet-point summary of news for *ticker*.
+        Uses the OpenAI Responses API with the built-in ``web_search`` tool so
+        that a single API call performs both the search and the summarization.
 
         Args:
-            ticker:         The stock ticker symbol (e.g. ``"AAPL"``).
-            search_results: Recent news snippets from trusted sources.
+            ticker: The stock ticker symbol (e.g. ``"AAPL"``).
 
         Returns:
-            A short, headline-style natural-language summary string.
+            A :class:`NewsResult` containing a terse bullet-point summary and
+            a list of cited :class:`Source` objects extracted from the response
+            annotations.
         """
-        if not search_results:
-            return f"No recent news found for {ticker}."
+        response = await self._client.responses.create(
+            model=self._model,
+            tools=[{"type": "web_search"}],
+            instructions=_INSTRUCTIONS,
+            input=(
+                f"Search for the latest news about {ticker} stock on "
+                "reuters.com, finance.yahoo.com, and investing.com. "
+                "Summarize in 2-3 bullet points."
+            ),
+        )
 
-        snippets = "\n".join(
-            f"- [{r.source}] {r.title}: {r.snippet}" for r in search_results
-        )
-        prompt = (
-            f"Ticker: {ticker}\n\n"
-            f"Recent news snippets:\n{snippets}\n\n"
-            "Summarize in 2-3 bullet points."
-        )
-        return await self.generate(prompt)
+        summary_text = ""
+        sources: list[Source] = []
+
+        for item in response.output:
+            if item.type == "message":
+                for block in item.content:
+                    if block.type == "output_text":
+                        summary_text = block.text
+                        for annotation in block.annotations:
+                            if annotation.type == "url_citation":
+                                sources.append(
+                                    Source(
+                                        title=annotation.title,
+                                        url=annotation.url,
+                                    )
+                                )
+
+        if not summary_text:
+            summary_text = f"No recent news found for {ticker}."
+
+        return NewsResult(summary=summary_text, sources=sources)
+

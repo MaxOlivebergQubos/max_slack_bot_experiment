@@ -1,8 +1,12 @@
 # max_slack_bot_experiment
 
-A modular Slack bot that scans trusted financial news sites for stock ticker
+A modular Slack bot that searches trusted financial news sites for stock ticker
 news. Mention a ticker in any message after `!maxbot` and the bot replies
 in-thread with a terse, headline-style summary and links to the source articles.
+
+The bot uses **OpenAI's Responses API** with the built-in `web_search` tool, so
+a single API call performs both the web search and the summarization. No
+separate search API key is needed.
 
 **Example usage:**
 ```
@@ -18,9 +22,9 @@ in-thread with a terse, headline-style summary and links to the source articles.
 • Analysts upgrade price target to $210 amid strong services growth
 
 *Sources:*
-• <https://reuters.com/...|Reuters: Apple Q1 earnings beat...>
-• <https://finance.yahoo.com/...|Yahoo Finance: Apple announces buyback...>
-• <https://investing.com/...|Investing.com: Analysts upgrade Apple...>
+• <https://reuters.com/...|Apple Q1 earnings beat...>
+• <https://finance.yahoo.com/...|Apple announces buyback...>
+• <https://investing.com/...|Analysts upgrade Apple...>
 ```
 
 ---
@@ -36,11 +40,8 @@ max_slack_bot_experiment/
 ├── README.md
 ├── llm/
 │   ├── base.py                     # BaseLLMProvider (abstract)
-│   └── openai_provider.py          # OpenAIProvider — GPT-4, financial news prompt
-├── search/
-│   ├── base.py                     # BaseSearchProvider + SearchResult dataclass
-│   ├── news_search_provider.py     # NewsSearchProvider — Bing scoped to trusted sites
-│   └── bing_provider.py            # BingSearchProvider — generic Bing (kept for compatibility)
+│   ├── models.py                   # NewsResult + Source dataclasses
+│   └── openai_provider.py          # OpenAIProvider — Responses API with web_search tool
 ├── parsing/
 │   ├── base.py                     # BaseMessageParser (abstract, generic)
 │   ├── ticker_parser.py            # TickerMessageParser — extracts ticker from !maxbot message
@@ -60,7 +61,7 @@ without touching the rest of the code.
 - Python 3.10 or newer
 - A **Slack workspace** where you can create apps
 - An **OpenAI API key** — <https://platform.openai.com/api-keys>
-- A **Bing Search API key** — <https://www.microsoft.com/en-us/bing/apis/bing-web-search-api>
+  (a model that supports web search, e.g. `gpt-4o-search-preview`, is required)
 
 ---
 
@@ -108,8 +109,7 @@ Open `.env` and fill in the values:
 | `SLACK_BOT_TOKEN` | Bot token from step 1.6 (`xoxb-…`) |
 | `SLACK_APP_TOKEN` | App-level token from step 1.3 (`xapp-…`) |
 | `OPENAI_API_KEY` | Your OpenAI secret key |
-| `OPENAI_MODEL` | Model name (default: `gpt-4`) |
-| `BING_API_KEY` | Bing Search API key — used to query Reuters, Yahoo Finance, and Investing.com |
+| `OPENAI_MODEL` | Model name (default: `gpt-4o-search-preview`) — must support the `web_search` tool |
 | `BOT_TRIGGER` | Trigger prefix (default: `!maxbot`) |
 
 ---
@@ -129,43 +129,25 @@ Now post `!maxbot TSLA what is happening?` in any channel where the bot is invit
 
 Every component implements a simple abstract interface.
 
-### Adding a new news source
+### Changing which sites are searched
 
-Edit `search/news_search_provider.py` and pass a custom `sites` list:
-
-```python
-searcher = NewsSearchProvider(
-    sites=["reuters.com", "finance.yahoo.com", "investing.com", "bloomberg.com"]
-)
-```
-
-The `_SOURCE_LABELS` dict in that file controls the friendly display name shown
-in the Slack message. Add an entry there for any new domain.
+The trusted sites are configured directly in the LLM prompt inside
+`llm/openai_provider.py`. Edit the `_INSTRUCTIONS` constant to add or remove
+sites. Because the model's built-in `web_search` tool handles retrieval, no
+separate search provider is needed.
 
 ### Replacing OpenAI with another LLM
 
 ```python
 # my_anthropic_provider.py
 from llm.base import BaseLLMProvider
-from search.base import SearchResult
-import anthropic
+from llm.models import NewsResult, Source
 
 class AnthropicProvider(BaseLLMProvider):
-    def __init__(self):
-        self._client = anthropic.AsyncAnthropic()
-
-    async def generate(self, prompt: str) -> str:
-        msg = await self._client.messages.create(
-            model="claude-3-opus-20240229",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return msg.content[0].text
-
-    async def summarize_news(self, ticker: str, search_results: list[SearchResult]) -> str:
-        snippets = "\n".join(f"- [{r.source}] {r.title}: {r.snippet}" for r in search_results)
-        prompt = f"Ticker: {ticker}\n\nRecent news snippets:\n{snippets}\n\nSummarize in 2-3 bullet points."
-        return await self.generate(prompt)
+    async def search_and_summarize(self, ticker: str) -> NewsResult:
+        # Call your provider, extract summary and sources
+        ...
+        return NewsResult(summary=summary, sources=sources)
 ```
 
 Then in `bot.py` change one line:
@@ -176,4 +158,4 @@ from my_anthropic_provider import AnthropicProvider
 llm = AnthropicProvider()
 ```
 
-The same pattern works for search, parsing, and formatting.
+The same pattern works for parsing and formatting.
