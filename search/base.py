@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -9,6 +9,7 @@ class SearchResult:
     title: str
     url: str
     snippet: str
+    source: str = field(default="")
 
 
 class BaseSearchProvider(ABC):
