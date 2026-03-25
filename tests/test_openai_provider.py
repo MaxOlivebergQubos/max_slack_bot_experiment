@@ -1,0 +1,103 @@
+"""Unit tests for OpenAIProvider (all mocked — no real API calls)."""
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from llm.openai_provider import OpenAIProvider
+
+
+def _make_response(output_text=None, annotations=None):
+    """Build a mock Responses API response mirroring the real output structure."""
+    mock_response = MagicMock()
+
+    if output_text is None:
+        mock_response.output = []
+        return mock_response
+
+    mock_block = MagicMock()
+    mock_block.type = "output_text"
+    mock_block.text = output_text
+    mock_block.annotations = annotations or []
+
+    mock_message = MagicMock()
+    mock_message.type = "message"
+    mock_message.content = [mock_block]
+
+    mock_response.output = [mock_message]
+    return mock_response
+
+
+def _make_annotation(title, url):
+    ann = MagicMock()
+    ann.type = "url_citation"
+    ann.title = title
+    ann.url = url
+    return ann
+
+
+@pytest.fixture
+def provider():
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}):
+        p = OpenAIProvider(api_key="test-key")
+    return p
+
+
+@pytest.mark.asyncio
+async def test_parses_response_with_output_text_and_annotations(provider):
+    annotation = _make_annotation("Reuters: AAPL earnings", "https://reuters.com/aapl")
+    mock_response = _make_response(
+        output_text="• AAPL revenue up 8%\n• New $100B buyback",
+        annotations=[annotation],
+    )
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result = await provider.search_and_summarize("AAPL")
+
+    assert "revenue up 8%" in result.summary
+    assert len(result.sources) == 1
+    assert result.sources[0].url == "https://reuters.com/aapl"
+    assert result.sources[0].title == "Reuters: AAPL earnings"
+
+
+@pytest.mark.asyncio
+async def test_fallback_summary_on_empty_response(provider):
+    mock_response = _make_response(output_text=None)
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result = await provider.search_and_summarize("XYZ")
+
+    assert "No recent news found for XYZ." in result.summary
+    assert result.sources == []
+
+
+@pytest.mark.asyncio
+async def test_sources_empty_when_no_annotations(provider):
+    mock_response = _make_response(
+        output_text="Some summary text.", annotations=[]
+    )
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result = await provider.search_and_summarize("TSLA")
+
+    assert result.summary == "Some summary text."
+    assert result.sources == []
+
+
+@pytest.mark.asyncio
+async def test_captures_multiple_annotations(provider):
+    annotations = [
+        _make_annotation("Reuters article", "https://reuters.com/1"),
+        _make_annotation("Yahoo article", "https://yahoo.com/2"),
+        _make_annotation("Investing article", "https://investing.com/3"),
+    ]
+    mock_response = _make_response(
+        output_text="• Up 5%\n• New product launch",
+        annotations=annotations,
+    )
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result = await provider.search_and_summarize("NVDA")
+
+    assert len(result.sources) == 3
+    assert result.sources[0].url == "https://reuters.com/1"
+    assert result.sources[1].url == "https://yahoo.com/2"
+    assert result.sources[2].url == "https://investing.com/3"
