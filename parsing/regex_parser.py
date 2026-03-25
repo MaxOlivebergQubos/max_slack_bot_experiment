@@ -6,7 +6,7 @@ from parsing.base import BaseMessageParser
 _DEFAULT_TRIGGER = "!maxbot"
 
 
-class RegexMessageParser(BaseMessageParser):
+class RegexMessageParser(BaseMessageParser[str]):
     """Message parser that matches ``!maxbot <query>`` (case-insensitive).
 
     The trigger prefix is configurable via the constructor or the

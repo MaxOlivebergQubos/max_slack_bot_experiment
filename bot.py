@@ -2,7 +2,6 @@
 
 Wires together all providers and starts the bot in Socket Mode.
 """
-import asyncio
 import logging
 import os
 
@@ -12,8 +11,8 @@ from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
 from formatting.slack_formatter import SlackFormatter
 from llm.openai_provider import OpenAIProvider
-from parsing.regex_parser import RegexMessageParser
-from search.bing_provider import BingSearchProvider
+from parsing.ticker_parser import TickerMessageParser
+from search.news_search_provider import NewsSearchProvider
 
 load_dotenv()
 
@@ -23,9 +22,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Instantiate providers (swap any of these with your own implementation)
 # ---------------------------------------------------------------------------
-parser = RegexMessageParser()
+parser = TickerMessageParser()
 llm = OpenAIProvider()
-searcher = BingSearchProvider()
+searcher = NewsSearchProvider()
 formatter = SlackFormatter()
 
 # ---------------------------------------------------------------------------
@@ -38,27 +37,27 @@ app = AsyncApp(token=os.environ["SLACK_BOT_TOKEN"])
 async def handle_message(event: dict, say) -> None:
     """Handle incoming Slack messages."""
     text: str = event.get("text") or ""
-    query = parser.parse(text)
+    ticker_query = parser.parse(text)
 
-    if query is None:
+    if ticker_query is None:
         return
 
     thread_ts: str = event.get("thread_ts") or event["ts"]
 
     try:
-        llm_response, search_results = await asyncio.gather(
-            llm.generate(query),
-            searcher.search(query),
-        )
+        search_results = await searcher.search(ticker_query.ticker)
+        llm_response = await llm.summarize_news(ticker_query.ticker, search_results)
     except Exception as exc:
-        logger.exception("Error while processing query: %s", query)
+        logger.exception(
+            "Error while processing ticker %s", ticker_query.ticker
+        )
         await say(
             text=f"Sorry, something went wrong: {exc}",
             thread_ts=thread_ts,
         )
         return
 
-    message = formatter.format(llm_response, search_results)
+    message = formatter.format(llm_response, search_results, ticker=ticker_query.ticker)
     await say(text=message, thread_ts=thread_ts)
 
 
@@ -68,4 +67,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())

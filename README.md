@@ -1,8 +1,27 @@
 # max_slack_bot_experiment
 
-A modular, LLM-powered Slack bot that listens for `!maxbot <query>` messages,
-queries OpenAI GPT-4 and the Bing Web Search API concurrently, and replies
-in-thread with a natural-language answer plus relevant links.
+A modular Slack bot that scans trusted financial news sites for stock ticker
+news. Mention a ticker in any message after `!maxbot` and the bot replies
+in-thread with a terse, headline-style summary and links to the source articles.
+
+**Example usage:**
+```
+!maxbot AAPL is going crazy, can you check for news?
+```
+
+**Example reply:**
+```
+📈 *AAPL — News Summary*
+
+• iPhone 16 sales beat expectations in Q1, revenue up 8% YoY
+• Apple announces $100B buyback program, largest in history
+• Analysts upgrade price target to $210 amid strong services growth
+
+*Sources:*
+• <https://reuters.com/...|Reuters: Apple Q1 earnings beat...>
+• <https://finance.yahoo.com/...|Yahoo Finance: Apple announces buyback...>
+• <https://investing.com/...|Investing.com: Analysts upgrade Apple...>
+```
 
 ---
 
@@ -10,23 +29,25 @@ in-thread with a natural-language answer plus relevant links.
 
 ```
 max_slack_bot_experiment/
-├── bot.py                  # Main entrypoint — wires providers, starts Socket Mode
+├── bot.py                          # Main entrypoint — wires providers, starts Socket Mode
 ├── requirements.txt
-├── .env.example            # Template for all required env vars
+├── .env.example                    # Template for all required env vars
 ├── .gitignore
 ├── README.md
 ├── llm/
-│   ├── base.py             # BaseLLMProvider (abstract)
-│   └── openai_provider.py  # OpenAIProvider — default GPT-4 implementation
+│   ├── base.py                     # BaseLLMProvider (abstract)
+│   └── openai_provider.py          # OpenAIProvider — GPT-4, financial news prompt
 ├── search/
-│   ├── base.py             # BaseSearchProvider + SearchResult dataclass (abstract)
-│   └── bing_provider.py    # BingSearchProvider — Bing Web Search v7
+│   ├── base.py                     # BaseSearchProvider + SearchResult dataclass
+│   ├── news_search_provider.py     # NewsSearchProvider — Bing scoped to trusted sites
+│   └── bing_provider.py            # BingSearchProvider — generic Bing (kept for compatibility)
 ├── parsing/
-│   ├── base.py             # BaseMessageParser (abstract)
-│   └── regex_parser.py     # RegexMessageParser — matches `!maxbot <query>`
+│   ├── base.py                     # BaseMessageParser (abstract, generic)
+│   ├── ticker_parser.py            # TickerMessageParser — extracts ticker from !maxbot message
+│   └── regex_parser.py             # RegexMessageParser — generic !maxbot parser (kept for compatibility)
 └── formatting/
-    ├── base.py             # BaseFormatter (abstract)
-    └── slack_formatter.py  # SlackFormatter — Slack mrkdwn output
+    ├── base.py                     # BaseFormatter (abstract)
+    └── slack_formatter.py          # SlackFormatter — 📈 stock-news Slack output
 ```
 
 Every layer has an abstract base class so you can swap out any component
@@ -88,7 +109,7 @@ Open `.env` and fill in the values:
 | `SLACK_APP_TOKEN` | App-level token from step 1.3 (`xapp-…`) |
 | `OPENAI_API_KEY` | Your OpenAI secret key |
 | `OPENAI_MODEL` | Model name (default: `gpt-4`) |
-| `BING_API_KEY` | Your Bing Search API key |
+| `BING_API_KEY` | Bing Search API key — used to query Reuters, Yahoo Finance, and Investing.com |
 | `BOT_TRIGGER` | Trigger prefix (default: `!maxbot`) |
 
 ---
@@ -100,18 +121,33 @@ python bot.py
 ```
 
 You should see `⚡️ Bolt app is running!` in the terminal.
-Now post `!maxbot What is asyncio?` in any channel where the bot is invited.
+Now post `!maxbot TSLA what is happening?` in any channel where the bot is invited.
 
 ---
 
 ## 5 — Swapping out providers
 
 Every component implements a simple abstract interface.
-To replace, for example, OpenAI with Anthropic:
+
+### Adding a new news source
+
+Edit `search/news_search_provider.py` and pass a custom `sites` list:
+
+```python
+searcher = NewsSearchProvider(
+    sites=["reuters.com", "finance.yahoo.com", "investing.com", "bloomberg.com"]
+)
+```
+
+The `_SOURCE_LABELS` dict in that file controls the friendly display name shown
+in the Slack message. Add an entry there for any new domain.
+
+### Replacing OpenAI with another LLM
 
 ```python
 # my_anthropic_provider.py
 from llm.base import BaseLLMProvider
+from search.base import SearchResult
 import anthropic
 
 class AnthropicProvider(BaseLLMProvider):
@@ -125,6 +161,11 @@ class AnthropicProvider(BaseLLMProvider):
             messages=[{"role": "user", "content": prompt}],
         )
         return msg.content[0].text
+
+    async def summarize_news(self, ticker: str, search_results: list[SearchResult]) -> str:
+        snippets = "\n".join(f"- [{r.source}] {r.title}: {r.snippet}" for r in search_results)
+        prompt = f"Ticker: {ticker}\n\nRecent news snippets:\n{snippets}\n\nSummarize in 2-3 bullet points."
+        return await self.generate(prompt)
 ```
 
 Then in `bot.py` change one line:
