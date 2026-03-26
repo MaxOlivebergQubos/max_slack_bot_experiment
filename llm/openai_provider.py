@@ -30,6 +30,12 @@ _INSTRUCTIONS = (
     "of it. Do NOT include old or outdated articles."
     " IMPORTANT: Only use sources from reuters.com, finance.yahoo.com, investing.com,"
     " and marketwatch.com. Do NOT cite any other websites."
+    " After the news bullet points, add an 'Events' section. "
+    "Search for any upcoming or very recent events for this stock — earnings reports, "
+    "ex-dividend dates, shareholder meetings, investor days, etc. — preferably from "
+    "finance.yahoo.com. Include ONE bullet point prefixed with 📅 about the most relevant event. "
+    "If you find an event, include a link. If no events are found, write: "
+    "📅 No relevant upcoming events found for [TICKER]."
 )
 
 
@@ -70,7 +76,8 @@ class OpenAIProvider(BaseLLMProvider):
                 f"Search for the latest news about {ticker} stock from TODAY on "
                 "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
                 "Only include articles published today or yesterday. "
-                "Summarize in 2-3 bullet points. Include the publication date for each."
+                "Summarize in 2-3 bullet points. Include the publication date for each. "
+                f"Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
             )
         else:
             input_prompt = (
@@ -78,7 +85,8 @@ class OpenAIProvider(BaseLLMProvider):
                 "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
                 f"Only include articles published on {date} or within 1-2 days of it. "
                 "Do NOT include old or outdated articles. "
-                "Summarize in 2-3 bullet points. Include the publication date for each."
+                "Summarize in 2-3 bullet points. Include the publication date for each. "
+                f"Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
             )
         response = await self._client.responses.create(
             model=self._model,
