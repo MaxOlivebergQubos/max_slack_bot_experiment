@@ -45,7 +45,7 @@ async def handle_message(event: dict, say) -> None:
 
     if not ticker_query.ticker:
         await say(
-            text="👋 I can only look up news about stock tickers! Try something like `!gaston AAPL` or `!gaston TSLA 2025-01-31`.",
+            text="👋 I can only look up news about stock tickers! Try something like `!gaston AAPL`, `!gaston III.L`, or `!gaston TSLA 2025-01-31`.",
             thread_ts=thread_ts,
         )
         return

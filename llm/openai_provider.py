@@ -1,13 +1,21 @@
 import os
+from urllib.parse import urlparse
 
 from openai import AsyncOpenAI
 
 from llm.base import BaseLLMProvider
 from llm.models import NewsResult, Source
 
+_ALLOWED_DOMAINS = frozenset({
+    "reuters.com",
+    "finance.yahoo.com",
+    "investing.com",
+    "marketwatch.com",
+})
+
 _INSTRUCTIONS = (
     "You are a financial news summarizer bot. "
-    "Search reuters.com, finance.yahoo.com, and investing.com for news "
+    "Search reuters.com, finance.yahoo.com, investing.com, and marketwatch.com for news "
     "about the given stock ticker. "
     "Produce a VERY brief, headline-style summary (2-3 short bullet points max) "
     "of what's happening with this stock. "
@@ -20,7 +28,18 @@ _INSTRUCTIONS = (
     "best estimate but always include a date. "
     "Only include news from the date specified in the query, or within 1-2 days "
     "of it. Do NOT include old or outdated articles."
+    " IMPORTANT: Only use sources from reuters.com, finance.yahoo.com, investing.com,"
+    " and marketwatch.com. Do NOT cite any other websites."
 )
+
+
+def _is_allowed_source(url: str) -> bool:
+    """Return True if the URL's domain ends with one of the allowed domains."""
+    try:
+        hostname = urlparse(url).hostname or ""
+        return any(hostname == domain or hostname.endswith("." + domain) for domain in _ALLOWED_DOMAINS)
+    except Exception:
+        return False
 
 
 class OpenAIProvider(BaseLLMProvider):
@@ -49,14 +68,14 @@ class OpenAIProvider(BaseLLMProvider):
         if date is None:
             input_prompt = (
                 f"Search for the latest news about {ticker} stock from TODAY on "
-                "reuters.com, finance.yahoo.com, and investing.com. "
+                "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
                 "Only include articles published today or yesterday. "
                 "Summarize in 2-3 bullet points. Include the publication date for each."
             )
         else:
             input_prompt = (
                 f"Search for news about {ticker} stock from {date} on "
-                "reuters.com, finance.yahoo.com, and investing.com. "
+                "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
                 f"Only include articles published on {date} or within 1-2 days of it. "
                 "Do NOT include old or outdated articles. "
                 "Summarize in 2-3 bullet points. Include the publication date for each."
@@ -87,6 +106,8 @@ class OpenAIProvider(BaseLLMProvider):
 
         if not summary_text:
             summary_text = f"No recent news found for {ticker}."
+
+        sources = [s for s in sources if _is_allowed_source(s.url)]
 
         return NewsResult(summary=summary_text, sources=sources)
 

@@ -86,7 +86,7 @@ async def test_sources_empty_when_no_annotations(provider):
 async def test_captures_multiple_annotations(provider):
     annotations = [
         _make_annotation("Reuters article", "https://reuters.com/1"),
-        _make_annotation("Yahoo article", "https://yahoo.com/2"),
+        _make_annotation("Yahoo article", "https://finance.yahoo.com/2"),
         _make_annotation("Investing article", "https://investing.com/3"),
     ]
     mock_response = _make_response(
@@ -99,7 +99,7 @@ async def test_captures_multiple_annotations(provider):
 
     assert len(result.sources) == 3
     assert result.sources[0].url == "https://reuters.com/1"
-    assert result.sources[1].url == "https://yahoo.com/2"
+    assert result.sources[1].url == "https://finance.yahoo.com/2"
     assert result.sources[2].url == "https://investing.com/3"
 
 
@@ -126,3 +126,60 @@ async def test_date_prompt_used_when_date_provided(provider):
     call_kwargs = provider._client.responses.create.call_args.kwargs
     assert "2025-01-31" in call_kwargs["input"]
     assert "latest" not in call_kwargs["input"].lower()
+
+
+# --- Domain-filter tests ---
+
+
+def test_is_allowed_source_accepts_allowed_domains():
+    from llm.openai_provider import _is_allowed_source
+
+    assert _is_allowed_source("https://reuters.com/article/aapl") is True
+    assert _is_allowed_source("https://finance.yahoo.com/quote/AAPL") is True
+    assert _is_allowed_source("https://investing.com/equities/apple") is True
+    assert _is_allowed_source("https://marketwatch.com/story/aapl") is True
+
+
+def test_is_allowed_source_accepts_subdomains():
+    from llm.openai_provider import _is_allowed_source
+
+    assert _is_allowed_source("https://www.reuters.com/article/aapl") is True
+    assert _is_allowed_source("https://uk.investing.com/equities/bp") is True
+
+
+def test_is_allowed_source_rejects_disallowed_domains():
+    from llm.openai_provider import _is_allowed_source
+
+    assert _is_allowed_source("https://bloomberg.com/news/aapl") is False
+    assert _is_allowed_source("https://yahoo.com/news/aapl") is False
+    assert _is_allowed_source("https://cnbc.com/2026/03/26/aapl") is False
+
+
+def test_is_allowed_source_handles_invalid_url():
+    from llm.openai_provider import _is_allowed_source
+
+    assert _is_allowed_source("not-a-url") is False
+    assert _is_allowed_source("") is False
+
+
+@pytest.mark.asyncio
+async def test_hard_filter_removes_offsite_sources(provider):
+    """Sources from outside allowed domains must be filtered out."""
+    annotations = [
+        _make_annotation("Reuters article", "https://reuters.com/aapl"),
+        _make_annotation("Bloomberg article", "https://bloomberg.com/aapl"),
+        _make_annotation("MarketWatch article", "https://marketwatch.com/aapl"),
+    ]
+    mock_response = _make_response(
+        output_text="• AAPL up 5%",
+        annotations=annotations,
+    )
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result = await provider.search_and_summarize("AAPL")
+
+    urls = [s.url for s in result.sources]
+    assert "https://reuters.com/aapl" in urls
+    assert "https://marketwatch.com/aapl" in urls
+    assert "https://bloomberg.com/aapl" not in urls
+    assert len(result.sources) == 2
