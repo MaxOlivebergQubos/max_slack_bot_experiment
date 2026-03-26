@@ -42,8 +42,15 @@ async def handle_message(event: dict, say) -> None:
 
     thread_ts: str = event.get("thread_ts") or event["ts"]
 
+    if not ticker_query.ticker:
+        await say(
+            text="👋 I can only look up news about stock tickers! Try something like `!gaston AAPL` or `!gaston TSLA 2025-01-31`.",
+            thread_ts=thread_ts,
+        )
+        return
+
     try:
-        news_result = await llm.search_and_summarize(ticker_query.ticker)
+        news_result = await llm.search_and_summarize(ticker_query.ticker, date=ticker_query.date)
     except Exception as exc:
         logger.exception(
             "Error while processing ticker %s", ticker_query.ticker

@@ -1,7 +1,7 @@
 """Ticker-aware message parser for the gaston stock-news bot."""
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from parsing.base import BaseMessageParser
 
@@ -37,6 +37,9 @@ _STOP_WORDS = frozenset(
 # Matches 1-5 uppercase ASCII letters surrounded by word boundaries
 _TICKER_RE = re.compile(r"\b([A-Z]{1,5})\b")
 
+# Matches YYYY-MM-DD date patterns
+_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+
 
 @dataclass
 class TickerQuery:
@@ -44,6 +47,7 @@ class TickerQuery:
 
     ticker: str
     raw_message: str
+    date: str | None = None  # e.g. "2025-01-31", None means "latest"
 
 
 class TickerMessageParser(BaseMessageParser[TickerQuery]):
@@ -72,10 +76,14 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
 
         raw_message = match.group(1).strip()
         ticker = self._extract_ticker(raw_message)
-        if ticker is None:
-            return None
 
-        return TickerQuery(ticker=ticker, raw_message=raw_message)
+        date_match = _DATE_RE.search(raw_message)
+        date = date_match.group(1) if date_match else None
+
+        if ticker is None:
+            return TickerQuery(ticker="", raw_message=raw_message, date=date)
+
+        return TickerQuery(ticker=ticker, raw_message=raw_message, date=date)
 
     @staticmethod
     def _extract_ticker(text: str) -> str | None:

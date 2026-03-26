@@ -58,3 +58,26 @@ def test_slack_link_format_in_output():
     msg = formatter.format(result, ticker="AAPL")
 
     assert "<https://example.com/article|My Title>" in msg
+
+
+def test_formats_source_with_published_date():
+    formatter = SlackFormatter()
+    result = NewsResult(
+        summary="Summary.",
+        sources=[Source(title="Reuters Article", url="https://reuters.com/r1", published_date="2025-01-31")],
+    )
+    msg = formatter.format(result, ticker="AAPL")
+
+    assert "<https://reuters.com/r1|Reuters Article> (2025-01-31)" in msg
+
+
+def test_formats_source_without_published_date():
+    formatter = SlackFormatter()
+    result = NewsResult(
+        summary="Summary.",
+        sources=[Source(title="Reuters Article", url="https://reuters.com/r1")],
+    )
+    msg = formatter.format(result, ticker="AAPL")
+
+    assert "<https://reuters.com/r1|Reuters Article>" in msg
+    assert "()" not in msg

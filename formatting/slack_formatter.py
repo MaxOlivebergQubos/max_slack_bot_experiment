@@ -30,6 +30,9 @@ class SlackFormatter(BaseFormatter):
             parts.append("")
             parts.append("*Sources:*")
             for source in news_result.sources:
-                parts.append(f"• <{source.url}|{source.title}>")
+                if source.published_date:
+                    parts.append(f"• <{source.url}|{source.title}> ({source.published_date})")
+                else:
+                    parts.append(f"• <{source.url}|{source.title}>")
 
         return "\n".join(parts)

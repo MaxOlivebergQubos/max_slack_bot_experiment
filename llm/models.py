@@ -8,6 +8,7 @@ class Source:
 
     title: str
     url: str
+    published_date: str = ""  # e.g. "2025-01-31" or empty if unknown
 
 
 @dataclass

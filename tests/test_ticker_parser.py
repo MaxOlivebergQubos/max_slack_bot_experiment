@@ -18,9 +18,10 @@ def test_returns_none_without_trigger(parser):
     assert parser.parse("hello AAPL world") is None
 
 
-def test_returns_none_when_only_stop_words(parser):
+def test_returns_empty_ticker_when_only_stop_words(parser):
     result = parser.parse("!gaston CAN you check THE news?")
-    assert result is None
+    assert result is not None
+    assert result.ticker == ""
 
 
 def test_trigger_is_case_insensitive(parser):
@@ -56,3 +57,33 @@ def test_picks_first_valid_ticker_when_multiple_present(parser):
     result = parser.parse("!gaston TSLA and NVDA")
     assert result is not None
     assert result.ticker == "TSLA"
+
+
+# --- Date extraction tests ---
+
+
+def test_extracts_date_from_message(parser):
+    result = parser.parse("!gaston AAPL 2025-01-31")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.date == "2025-01-31"
+
+
+def test_date_is_none_when_not_present(parser):
+    result = parser.parse("!gaston AAPL latest news")
+    assert result is not None
+    assert result.date is None
+
+
+def test_date_extracted_with_stop_words_only(parser):
+    result = parser.parse("!gaston hello 2025-06-15")
+    assert result is not None
+    assert result.ticker == ""
+    assert result.date == "2025-06-15"
+
+
+def test_extracts_first_date_when_multiple_present(parser):
+    result = parser.parse("!gaston TSLA between 2025-01-01 and 2025-03-31")
+    assert result is not None
+    assert result.ticker == "TSLA"
+    assert result.date == "2025-01-01"

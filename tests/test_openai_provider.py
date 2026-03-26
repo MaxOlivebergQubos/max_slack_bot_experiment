@@ -101,3 +101,28 @@ async def test_captures_multiple_annotations(provider):
     assert result.sources[0].url == "https://reuters.com/1"
     assert result.sources[1].url == "https://yahoo.com/2"
     assert result.sources[2].url == "https://investing.com/3"
+
+
+@pytest.mark.asyncio
+async def test_latest_prompt_used_when_no_date(provider):
+    """When date=None, the prompt should ask for the latest news."""
+    mock_response = _make_response(output_text="• AAPL up 5%")
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    await provider.search_and_summarize("AAPL")
+
+    call_kwargs = provider._client.responses.create.call_args.kwargs
+    assert "latest" in call_kwargs["input"].lower()
+
+
+@pytest.mark.asyncio
+async def test_date_prompt_used_when_date_provided(provider):
+    """When date is provided, the prompt should reference that specific date."""
+    mock_response = _make_response(output_text="• AAPL news from Jan 31")
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    await provider.search_and_summarize("AAPL", date="2025-01-31")
+
+    call_kwargs = provider._client.responses.create.call_args.kwargs
+    assert "2025-01-31" in call_kwargs["input"]
+    assert "latest" not in call_kwargs["input"].lower()
