@@ -7,13 +7,19 @@ from llm.models import NewsResult, Source
 
 _INSTRUCTIONS = (
     "You are a financial news summarizer bot. "
-    "Search reuters.com, finance.yahoo.com, and investing.com for recent news "
+    "Search reuters.com, finance.yahoo.com, and investing.com for news "
     "about the given stock ticker. "
     "Produce a VERY brief, headline-style summary (2-3 short bullet points max) "
     "of what's happening with this stock. "
     "Be concise — think Bloomberg terminal brevity. "
     "Do not add disclaimers or caveats. "
-    "For each article you reference, include its publication date."
+    "IMPORTANT: For every bullet point, you MUST prefix it with the article's "
+    "publication date in [YYYY-MM-DD] format. Example: "
+    "• [2026-03-25] iPhone 16 sales beat expectations in Q1. "
+    "If you cannot determine the exact publication date of an article, use your "
+    "best estimate but always include a date. "
+    "Only include news from the date specified in the query, or within 1-2 days "
+    "of it. Do NOT include old or outdated articles."
 )
 
 
@@ -42,16 +48,18 @@ class OpenAIProvider(BaseLLMProvider):
         """
         if date is None:
             input_prompt = (
-                f"Search for the latest news about {ticker} stock on "
+                f"Search for the latest news about {ticker} stock from TODAY on "
                 "reuters.com, finance.yahoo.com, and investing.com. "
-                "Summarize in 2-3 bullet points."
+                "Only include articles published today or yesterday. "
+                "Summarize in 2-3 bullet points. Include the publication date for each."
             )
         else:
             input_prompt = (
-                f"Search for news about {ticker} stock from around {date} on "
+                f"Search for news about {ticker} stock from {date} on "
                 "reuters.com, finance.yahoo.com, and investing.com. "
-                f"Focus on news from that specific date or within a few days of it. "
-                "Summarize in 2-3 bullet points."
+                f"Only include articles published on {date} or within 1-2 days of it. "
+                "Do NOT include old or outdated articles. "
+                "Summarize in 2-3 bullet points. Include the publication date for each."
             )
         response = await self._client.responses.create(
             model=self._model,

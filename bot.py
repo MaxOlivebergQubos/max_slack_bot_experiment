@@ -4,6 +4,7 @@ Wires together all providers and starts the bot in Socket Mode.
 """
 import logging
 import os
+from datetime import date as _date
 
 from dotenv import load_dotenv
 from slack_bolt.async_app import AsyncApp
@@ -50,7 +51,8 @@ async def handle_message(event: dict, say) -> None:
         return
 
     try:
-        news_result = await llm.search_and_summarize(ticker_query.ticker, date=ticker_query.date)
+        search_date = ticker_query.date or _date.today().isoformat()
+        news_result = await llm.search_and_summarize(ticker_query.ticker, date=search_date)
     except Exception as exc:
         logger.exception(
             "Error while processing ticker %s", ticker_query.ticker
