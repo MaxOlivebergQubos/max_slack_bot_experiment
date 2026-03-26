@@ -87,3 +87,44 @@ def test_extracts_first_date_when_multiple_present(parser):
     assert result is not None
     assert result.ticker == "TSLA"
     assert result.date == "2025-01-01"
+
+
+# --- International ticker tests ---
+
+
+def test_extracts_lse_ticker(parser):
+    result = parser.parse("!gaston III.L what is happening?")
+    assert result is not None
+    assert result.ticker == "III.L"
+
+
+def test_extracts_amsterdam_ticker(parser):
+    result = parser.parse("!gaston RDSA.AS news")
+    assert result is not None
+    assert result.ticker == "RDSA.AS"
+
+
+def test_extracts_frankfurt_ticker_with_digit(parser):
+    result = parser.parse("!gaston VOW3.DE latest news")
+    assert result is not None
+    assert result.ticker == "VOW3.DE"
+
+
+def test_extracts_plain_lse_ticker(parser):
+    result = parser.parse("!gaston BP.L")
+    assert result is not None
+    assert result.ticker == "BP.L"
+
+
+def test_stop_word_with_exchange_suffix_passes(parser):
+    """FOR is a stop word, but FOR.L is a valid LSE ticker and should pass."""
+    result = parser.parse("!gaston FOR.L")
+    assert result is not None
+    assert result.ticker == "FOR.L"
+
+
+def test_plain_stop_word_still_filtered(parser):
+    """Plain stop words without exchange suffix are still filtered."""
+    result = parser.parse("!gaston FOR THE news")
+    assert result is not None
+    assert result.ticker == ""

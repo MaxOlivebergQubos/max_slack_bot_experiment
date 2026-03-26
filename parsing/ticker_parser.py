@@ -34,8 +34,10 @@ _STOP_WORDS = frozenset(
     }
 )
 
-# Matches 1-5 uppercase ASCII letters surrounded by word boundaries
-_TICKER_RE = re.compile(r"\b([A-Z]{1,5})\b")
+# Matches tickers: 1-5 uppercase letters/digits (starting with a letter),
+# optionally followed by a dot and 1-4 uppercase letters (exchange suffix),
+# e.g. AAPL, VOW3, III.L, RDSA.AS, VOW3.DE
+_TICKER_RE = re.compile(r"\b([A-Z][A-Z0-9]{0,4}(?:\.[A-Z]{1,4})?)\b")
 
 # Matches YYYY-MM-DD date patterns
 _DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -87,8 +89,10 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
 
     @staticmethod
     def _extract_ticker(text: str) -> str | None:
-        """Return the first uppercase word that looks like a ticker symbol."""
+        """Return the first word that looks like a ticker symbol."""
         for candidate in _TICKER_RE.findall(text):
-            if candidate not in _STOP_WORDS:
-                return candidate
+            # Only filter stop words for plain tickers (no exchange suffix)
+            if "." not in candidate and candidate in _STOP_WORDS:
+                continue
+            return candidate
         return None
