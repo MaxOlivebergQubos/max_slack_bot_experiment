@@ -68,13 +68,12 @@ async def handle_message(event: dict, say) -> None:
         return
 
     thread_ts: str = event.get("thread_ts") or event["ts"]
-    user_id: str = event.get("user") or ""
 
     # --- Start debug trace (best-effort) ---
     log_thread_ts: str | None = None
     if debug_logger is not None:
         try:
-            log_thread_ts = await debug_logger.start_trace(user_id, text)
+            log_thread_ts = await debug_logger.start_trace(text)
         except Exception:
             pass
 
