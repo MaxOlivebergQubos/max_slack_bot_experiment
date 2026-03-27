@@ -1,21 +1,26 @@
 from abc import ABC, abstractmethod
 
-from llm.models import NewsResult
+from llm.models import FilteredResponse, LLMDebugInfo
 
 
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    async def search_and_summarize(self, ticker: str, date: str | None = None) -> NewsResult:
-        """Search the web for news about *ticker* and return a summary with sources.
+    async def search_and_summarize(
+        self, ticker: str, date: str | None = None,
+        *, no_filter: bool = False, jar_jar: bool = False,
+    ) -> tuple[FilteredResponse, LLMDebugInfo]:
+        """Search the web for news about *ticker* and return structured, filtered results.
 
         Args:
             ticker: The stock ticker symbol (e.g. ``"AAPL"``).
-            date: Optional YYYY-MM-DD date string. If provided, search for news
-                around that specific date instead of the latest news.
+            date: Optional YYYY-MM-DD date string.
+            no_filter: When True, skip domain-based source filtering.
+            jar_jar: When True, instruct the LLM to respond as Jar Jar Binks.
 
         Returns:
-            A :class:`NewsResult` containing a terse bullet-point summary and
-            a list of cited :class:`Source` objects.
+            A tuple of (FilteredResponse, LLMDebugInfo). FilteredResponse contains
+            news items, events, and a count of filtered links. LLMDebugInfo contains
+            the intermediate prompt/response data for debugging.
         """
