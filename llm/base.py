@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
 
-from llm.models import NewsResult
+from llm.models import FilteredResponse
 
 
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    async def search_and_summarize(self, ticker: str, date: str | None = None) -> NewsResult:
-        """Search the web for news about *ticker* and return a summary with sources.
+    async def search_and_summarize(self, ticker: str, date: str | None = None) -> FilteredResponse:
+        """Search the web for news about *ticker* and return structured, filtered results.
 
         Args:
             ticker: The stock ticker symbol (e.g. ``"AAPL"``).
-            date: Optional YYYY-MM-DD date string. If provided, search for news
-                around that specific date instead of the latest news.
+            date: Optional YYYY-MM-DD date string.
 
         Returns:
-            A :class:`NewsResult` containing a terse bullet-point summary and
-            a list of cited :class:`Source` objects.
+            A FilteredResponse with news items, events, and a count of filtered links.
         """

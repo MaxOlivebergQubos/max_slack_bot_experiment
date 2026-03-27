@@ -1,38 +1,45 @@
 from formatting.base import BaseFormatter
-from llm.models import NewsResult
+from llm.models import FilteredResponse
 
 
 class SlackFormatter(BaseFormatter):
-    """Formats a stock-news LLM summary and sources into Slack mrkdwn.
+    """Formats structured news/events data into Slack mrkdwn."""
 
-    Example output::
-
-        📈 *AAPL — News Summary*
-
-        • iPhone 16 sales beat expectations in Q1, revenue up 8% YoY
-        • Apple announces $100B buyback program, largest in history
-
-        *Sources:*
-        • <https://reuters.com/...|Apple Q1 earnings beat...>
-    """
-
-    def format(self, news_result: NewsResult, ticker: str = "") -> str:
+    def format(self, response: FilteredResponse, ticker: str = "") -> str:
         parts: list[str] = []
 
+        # Header
         header = f"📈 *{ticker} — News Summary*" if ticker else "📈 *News Summary*"
         parts.append(header)
         parts.append("")
 
-        if news_result.summary:
-            parts.append(news_result.summary)
-
-        if news_result.sources:
-            parts.append("")
-            parts.append("*Sources:*")
-            for source in news_result.sources:
-                if source.published_date:
-                    parts.append(f"• <{source.url}|{source.title}> ({source.published_date})")
+        # News bullets
+        if response.news:
+            for item in response.news:
+                date_prefix = f"[{item.date}] " if item.date else ""
+                if item.source_url:
+                    parts.append(f"• {date_prefix}{item.headline} (<{item.source_url}|{item.source_name}>)")
                 else:
-                    parts.append(f"• <{source.url}|{source.title}>")
+                    parts.append(f"• {date_prefix}{item.headline}")
+        else:
+            parts.append(f"_No recent news found for {ticker}._")
+
+        # Events section
+        parts.append("")
+        if response.events:
+            parts.append("*Upcoming Events:*")
+            for event in response.events:
+                date_prefix = f"[{event.date}] " if event.date else ""
+                if event.source_url:
+                    parts.append(f"📅 {date_prefix}{event.description} (<{event.source_url}|{event.source_name}>)")
+                else:
+                    parts.append(f"📅 {date_prefix}{event.description}")
+        else:
+            parts.append(f"📅 _No relevant upcoming events found for {ticker}._")
+
+        # Filtered links note
+        if response.filtered_count > 0:
+            parts.append("")
+            parts.append(f"_ℹ️ {response.filtered_count} link(s) from non-approved sources were filtered out._")
 
         return "\n".join(parts)
