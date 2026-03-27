@@ -4,6 +4,8 @@ Each constant is a self-contained piece of the system prompt or user prompt.
 Edit any block independently without touching the others.
 """
 
+from config import domains_str
+
 # -- System prompt building blocks ------------------------------------------
 
 ROLE = (
@@ -11,7 +13,7 @@ ROLE = (
 )
 
 SEARCH_SITES = (
-    "Search reuters.com, finance.yahoo.com, investing.com, and marketwatch.com "
+    f"Search {domains_str()} "
     "for news about the given stock ticker."
 )
 
@@ -39,7 +41,7 @@ JSON_RULES = (
     "- news: 2-3 items max. Each headline should be Bloomberg-terminal terse.\n"
     "- events: 0-2 items. Include earnings dates, ex-dividend dates, investor days, etc.\n"
     "- date: Always YYYY-MM-DD format.\n"
-    "- source_url: MUST be from reuters.com, finance.yahoo.com, investing.com, or marketwatch.com ONLY.\n"
+    f"- source_url: MUST be from {domains_str()} ONLY.\n"
     "- source_name: Human-readable site name.\n"
     "- If no news found, set news to an empty array [].\n"
     "- If no events found, set events to an empty array [].\n"
@@ -81,14 +83,14 @@ def build_system_instruction(jar_jar: bool = False) -> str:
 
 INPUT_LATEST = (
     "Search for the latest news about {ticker} stock from TODAY on "
-    "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
+    f"{domains_str()}. "
     "Only include articles published today or yesterday. "
     "Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
 )
 
 INPUT_WITH_DATE = (
     "Search for news about {ticker} stock from {date} on "
-    "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
+    f"{domains_str()}. "
     "Only include articles published on {date} or within 1-2 days of it. "
     "Do NOT include old or outdated articles. "
     "Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."

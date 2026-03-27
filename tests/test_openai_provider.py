@@ -206,11 +206,10 @@ async def test_debug_info_contains_prompts_and_raw_response(provider):
 
 def test_is_allowed_source_accepts_allowed_domains():
     from llm.openai_provider import _is_allowed_source
+    from config import ALLOWED_SOURCES
 
-    assert _is_allowed_source("https://reuters.com/article/aapl") is True
-    assert _is_allowed_source("https://finance.yahoo.com/quote/AAPL") is True
-    assert _is_allowed_source("https://investing.com/equities/apple") is True
-    assert _is_allowed_source("https://marketwatch.com/story/aapl") is True
+    for source in ALLOWED_SOURCES:
+        assert _is_allowed_source(f"https://{source.domain}/article/test") is True
 
 
 def test_is_allowed_source_accepts_subdomains():

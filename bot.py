@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
+from config import source_names_str
 from debug.slack_debug_logger import SlackDebugLogger
 from formatting.slack_formatter import SlackFormatter
 from llm.openai_provider import OpenAIProvider
@@ -44,7 +45,7 @@ _INFO_TEXT = (
     "*Options:*\n"
     "• `--no-filter` — Include sources from any website (not just Reuters, Yahoo Finance, etc.)\n"
     "• `--info` — Show this help message\n\n"
-    "*Sources:* Reuters, Yahoo Finance, Investing.com, MarketWatch\n"
+    f"*Sources:* {source_names_str()}\n"
     "*Tip:* Gaston responds in the thread so your channel stays tidy! 🧵"
 )
 
