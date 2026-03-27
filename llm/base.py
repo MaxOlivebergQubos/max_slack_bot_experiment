@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 
-from llm.models import FilteredResponse
+from llm.models import FilteredResponse, LLMDebugInfo
 
 
 class BaseLLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod
-    async def search_and_summarize(self, ticker: str, date: str | None = None) -> FilteredResponse:
+    async def search_and_summarize(self, ticker: str, date: str | None = None) -> tuple[FilteredResponse, LLMDebugInfo]:
         """Search the web for news about *ticker* and return structured, filtered results.
 
         Args:
@@ -15,5 +15,7 @@ class BaseLLMProvider(ABC):
             date: Optional YYYY-MM-DD date string.
 
         Returns:
-            A FilteredResponse with news items, events, and a count of filtered links.
+            A tuple of (FilteredResponse, LLMDebugInfo). FilteredResponse contains
+            news items, events, and a count of filtered links. LLMDebugInfo contains
+            the intermediate prompt/response data for debugging.
         """
