@@ -45,7 +45,7 @@ class SlackDebugLogger:
             )
             self._channel_id = None
 
-    async def start_trace(self, user_id: str, raw_text: str) -> str | None:
+    async def start_trace(self, raw_text: str) -> str | None:
         """Post the header message and return the thread_ts for follow-up replies.
 
         Returns ``None`` if logging is disabled or the post fails.
@@ -56,7 +56,7 @@ class SlackDebugLogger:
         try:
             resp = await self._app.client.chat_postMessage(
                 channel=self._channel_id,
-                text=f"🔍 <@{user_id}> invoked Gaston: `{raw_text}`",
+                text=f"🔍 Gaston invoked: `{raw_text}`",
             )
             return resp["ts"]
         except Exception as exc:
