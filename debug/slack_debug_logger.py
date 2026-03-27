@@ -1,6 +1,7 @@
 """Debug logger that posts step-by-step traces to a Slack log channel."""
 import json
 import logging
+import re
 
 from slack_bolt.async_app import AsyncApp
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 _TRUNCATE_LIMIT = 3000
 _TRUNCATE_SUFFIX = "... (truncated)"
+_CHANNEL_ID_RE = re.compile(r"^C[A-Z0-9]+$")
 
 
 def _truncate(text: str, limit: int = _TRUNCATE_LIMIT) -> str:
@@ -26,71 +28,35 @@ class SlackDebugLogger:
         """
         Args:
             app: The Slack Bolt AsyncApp instance (used for posting).
-            channel: Channel ID (starting with ``C``) or name (e.g. ``#gaston-log``).
+            channel: Channel ID starting with ``C`` (e.g. ``C1234567890``).
+                     Name-based values are not supported; pass a channel ID only.
         """
         self._app = app
-        self._channel_input = channel
-        self._channel_id: str | None = None
-
-    async def _resolve_channel(self) -> str | None:
-        """Return the channel ID, resolving a name to an ID on first use."""
-        if self._channel_id is not None:
-            return self._channel_id
-
-        channel = self._channel_input.lstrip("#")
-
-        # If it already looks like a Slack channel ID, use it directly.
-        if channel.startswith("C") and channel == channel.upper():
-            self._channel_id = channel
-            return self._channel_id
-
-        # Otherwise look it up via conversations_list.
-        try:
-            cursor = None
-            while True:
-                kwargs: dict = {"limit": 200}
-                if cursor:
-                    kwargs["cursor"] = cursor
-                resp = await self._app.client.conversations_list(**kwargs)
-                for ch in resp.get("channels", []):
-                    if ch.get("name") == channel:
-                        self._channel_id = ch["id"]
-                        return self._channel_id
-                cursor = resp.get("response_metadata", {}).get("next_cursor")
-                if not cursor:
-                    break
-        except Exception as exc:
-            logger.warning("slack_debug_logger: could not resolve channel %r: %s", self._channel_input, exc)
-
-        return None
-
-    async def _resolve_display_name(self, user_id: str) -> str:
-        """Return the user's plain-text display name, falling back to *user_id*."""
-        try:
-            resp = await self._app.client.users_info(user=user_id)
-            profile = resp.get("user", {}).get("profile", {})
-            display_name = profile.get("display_name") or profile.get("real_name") or ""
-            if display_name:
-                return display_name
-        except Exception as exc:
-            logger.warning("slack_debug_logger: could not resolve display name for %r: %s", user_id, exc)
-        return user_id
+        # Only accept values that look like a Slack channel ID (C followed by
+        # uppercase alphanumeric characters).  Anything else disables logging.
+        if _CHANNEL_ID_RE.match(channel):
+            self._channel_id: str | None = channel
+        else:
+            logger.warning(
+                "slack_debug_logger: SLACK_LOG_CHANNEL %r does not look like a "
+                "channel ID (must start with 'C' and be uppercase, e.g. C1234567890). "
+                "Debug logging is disabled.",
+                channel,
+            )
+            self._channel_id = None
 
     async def start_trace(self, user_id: str, raw_text: str) -> str | None:
         """Post the header message and return the thread_ts for follow-up replies.
 
         Returns ``None`` if logging is disabled or the post fails.
         """
-        channel_id = await self._resolve_channel()
-        if channel_id is None:
+        if self._channel_id is None:
             return None
-
-        display_name = await self._resolve_display_name(user_id)
 
         try:
             resp = await self._app.client.chat_postMessage(
-                channel=channel_id,
-                text=f"🔍 User {display_name} invoked Gaston: `{raw_text}`",
+                channel=self._channel_id,
+                text=f"🔍 <@{user_id}> invoked Gaston: `{raw_text}`",
             )
             return resp["ts"]
         except Exception as exc:
@@ -101,12 +67,11 @@ class SlackDebugLogger:
         """Post a single debug step as a reply in the trace thread."""
         if thread_ts is None:
             return
-        channel_id = await self._resolve_channel()
-        if channel_id is None:
+        if self._channel_id is None:
             return
         try:
             await self._app.client.chat_postMessage(
-                channel=channel_id,
+                channel=self._channel_id,
                 thread_ts=thread_ts,
                 text=text,
             )

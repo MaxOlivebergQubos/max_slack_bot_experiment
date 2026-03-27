@@ -50,6 +50,7 @@ _INFO_TEXT = (
 
 # ---------------------------------------------------------------------------
 # Optional debug logger (disabled when SLACK_LOG_CHANNEL is unset/empty)
+# SLACK_LOG_CHANNEL must be a channel ID (e.g. C1234567890), not a channel name.
 # ---------------------------------------------------------------------------
 _log_channel = os.environ.get("SLACK_LOG_CHANNEL", "").strip()
 debug_logger: SlackDebugLogger | None = (
