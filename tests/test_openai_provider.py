@@ -163,14 +163,15 @@ async def test_empty_source_url_not_counted_as_filtered(provider):
 
 @pytest.mark.asyncio
 async def test_latest_prompt_used_when_no_date(provider):
-    """When date=None, the prompt should ask for the latest news."""
+    """When date=None, the prompt should contain today's date."""
+    from datetime import date as _date
     mock_response = _make_json_response(news=[{"date": "2026-03-27", "headline": "Up 5%", "source_url": "", "source_name": "Reuters"}])
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
     await provider.search_and_summarize("AAPL")
 
     call_kwargs = provider._client.responses.create.call_args.kwargs
-    assert "latest" in call_kwargs["input"].lower()
+    assert _date.today().isoformat() in call_kwargs["input"]
 
 
 @pytest.mark.asyncio

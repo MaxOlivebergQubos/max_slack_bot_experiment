@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from datetime import date as _date
 from urllib.parse import urlparse
 
 from openai import AsyncOpenAI
@@ -8,7 +9,7 @@ from openai import AsyncOpenAI
 from config import allowed_domains
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
-from llm.prompts import INPUT_LATEST, INPUT_WITH_DATE, SYSTEM_INSTRUCTION, build_system_instruction
+from llm.prompts import INPUT_WITH_DATE, SYSTEM_INSTRUCTION, build_system_instruction
 
 _ALLOWED_DOMAINS = allowed_domains()
 
@@ -60,10 +61,8 @@ class OpenAIProvider(BaseLLMProvider):
             LLMDebugInfo contains the system prompt, input prompt, and raw
             response text for debugging purposes.
         """
-        if date is None:
-            input_prompt = INPUT_LATEST.format(ticker=ticker)
-        else:
-            input_prompt = INPUT_WITH_DATE.format(ticker=ticker, date=date)
+        effective_date = date if date is not None else _date.today().isoformat()
+        input_prompt = INPUT_WITH_DATE.format(ticker=ticker, date=effective_date)
         system_instruction = build_system_instruction(jar_jar=jar_jar)
         response = await self._client.responses.create(
             model=self._model,

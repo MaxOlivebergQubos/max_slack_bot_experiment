@@ -81,13 +81,6 @@ def build_system_instruction(jar_jar: bool = False) -> str:
 
 # -- User/input prompt templates -------------------------------------------
 
-INPUT_LATEST = (
-    "Search for the latest news about {ticker} stock from TODAY on "
-    f"{domains_str()}. "
-    "Only include articles published today or yesterday. "
-    "Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
-)
-
 INPUT_WITH_DATE = (
     "Search for news about {ticker} stock from {date} on "
     f"{domains_str()}. "

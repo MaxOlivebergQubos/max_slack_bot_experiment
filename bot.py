@@ -4,7 +4,6 @@ Wires together all providers and starts the bot in Socket Mode.
 """
 import logging
 import os
-from datetime import date as _date
 
 from dotenv import load_dotenv
 from slack_bolt.async_app import AsyncApp
@@ -101,10 +100,9 @@ async def handle_message(event: dict, say) -> None:
             pass
 
     try:
-        search_date = ticker_query.date or _date.today().isoformat()
         news_result, debug_info = await llm.search_and_summarize(
             ticker_query.ticker,
-            date=search_date,
+            date=ticker_query.date,
             no_filter=ticker_query.no_filter,
             jar_jar=ticker_query.jar_jar,
         )
