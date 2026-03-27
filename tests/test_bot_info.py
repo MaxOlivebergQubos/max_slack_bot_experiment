@@ -18,7 +18,8 @@ def _import_bot():
     mock_app.event.return_value = lambda f: f
     with patch.dict(os.environ, env_patch), \
          patch("slack_bolt.async_app.AsyncApp", return_value=mock_app), \
-         patch("slack_bolt.adapter.socket_mode.async_handler.AsyncSocketModeHandler"):
+         patch("slack_bolt.adapter.socket_mode.async_handler.AsyncSocketModeHandler"), \
+         patch("debug.slack_debug_logger.SlackDebugLogger"):
         # Remove cached module so it's re-imported fresh each time
         sys.modules.pop("bot", None)
         import bot as _bot
@@ -51,9 +52,8 @@ async def test_info_flag_responds_with_help_text(bot_module, say, event_factory)
     with patch.object(bot_module, "debug_logger", None), \
          patch.object(bot_module.llm, "search_and_summarize", new_callable=AsyncMock) as mock_llm:
         await bot_module.handle_message(event_factory("!gaston --info"), say)
-
-    say.assert_called_once_with(text=bot_module._INFO_TEXT, thread_ts="111.111")
-    mock_llm.assert_not_called()
+        say.assert_called_once_with(text=bot_module._INFO_TEXT, thread_ts="111.111")
+        mock_llm.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -62,9 +62,8 @@ async def test_info_flag_with_ticker_still_short_circuits(bot_module, say, event
     with patch.object(bot_module, "debug_logger", None), \
          patch.object(bot_module.llm, "search_and_summarize", new_callable=AsyncMock) as mock_llm:
         await bot_module.handle_message(event_factory("!gaston AAPL --info"), say)
-
-    say.assert_called_once_with(text=bot_module._INFO_TEXT, thread_ts="111.111")
-    mock_llm.assert_not_called()
+        say.assert_called_once_with(text=bot_module._INFO_TEXT, thread_ts="111.111")
+        mock_llm.assert_not_called()
 
 
 @pytest.mark.asyncio
