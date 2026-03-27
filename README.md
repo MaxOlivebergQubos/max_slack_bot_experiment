@@ -111,6 +111,7 @@ Open `.env` and fill in the values:
 | `OPENAI_API_KEY` | Your OpenAI secret key |
 | `OPENAI_MODEL` | Model name (default: `gpt-4o-search-preview`) — must support the `web_search` tool |
 | `BOT_TRIGGER` | Trigger prefix (default: `!gaston`) |
+| `SLACK_LOG_CHANNEL` | *(Optional)* Channel **ID** to post debug traces to (e.g. `C1234567890`). Must be a channel ID, not a name. Leave empty to disable. |
 
 ---
 
