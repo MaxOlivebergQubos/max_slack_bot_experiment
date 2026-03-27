@@ -50,6 +50,14 @@ RECENCY_RULE = (
     "Only include news from the date specified in the query, or within 1-2 days of it."
 )
 
+JAR_JAR_STYLE = (
+    "IMPORTANT STYLE OVERRIDE: You must write ALL text as if you are Jar Jar Binks "
+    "from Star Wars. Use Jar Jar's speech patterns, mannerisms, and vocabulary "
+    "(e.g., 'meesa', 'yousa', 'muy muy', 'bombad', 'okeday'). "
+    "The financial content must still be accurate, but the language style "
+    "must be unmistakably Jar Jar Binks. Have fun with it!"
+)
+
 # -- Helpers to compose the full system instruction -------------------------
 
 SYSTEM_INSTRUCTION = "\n\n".join([
@@ -60,6 +68,14 @@ SYSTEM_INSTRUCTION = "\n\n".join([
     JSON_RULES,
     RECENCY_RULE,
 ])
+
+
+def build_system_instruction(jar_jar: bool = False) -> str:
+    """Compose the full system instruction, optionally with Jar Jar style."""
+    parts = [ROLE, SEARCH_SITES, EVENTS_INSTRUCTION, JSON_SCHEMA, JSON_RULES, RECENCY_RULE]
+    if jar_jar:
+        parts.append(JAR_JAR_STYLE)
+    return "\n\n".join(parts)
 
 # -- User/input prompt templates -------------------------------------------
 

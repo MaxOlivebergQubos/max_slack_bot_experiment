@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
-from llm.prompts import INPUT_LATEST, INPUT_WITH_DATE, SYSTEM_INSTRUCTION
+from llm.prompts import INPUT_LATEST, INPUT_WITH_DATE, SYSTEM_INSTRUCTION, build_system_instruction
 
 _ALLOWED_DOMAINS = frozenset({
     "reuters.com",
@@ -43,7 +43,10 @@ class OpenAIProvider(BaseLLMProvider):
         self._client = AsyncOpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"])
         self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-search-preview")
 
-    async def search_and_summarize(self, ticker: str, date: str | None = None) -> tuple[FilteredResponse, LLMDebugInfo]:
+    async def search_and_summarize(
+        self, ticker: str, date: str | None = None,
+        *, no_filter: bool = False, jar_jar: bool = False,
+    ) -> tuple[FilteredResponse, LLMDebugInfo]:
         """Search the web for news about *ticker* and return structured, filtered results.
 
         Uses the OpenAI Responses API with the built-in ``web_search`` tool so
@@ -65,10 +68,11 @@ class OpenAIProvider(BaseLLMProvider):
             input_prompt = INPUT_LATEST.format(ticker=ticker)
         else:
             input_prompt = INPUT_WITH_DATE.format(ticker=ticker, date=date)
+        system_instruction = build_system_instruction(jar_jar=jar_jar)
         response = await self._client.responses.create(
             model=self._model,
             tools=[{"type": "web_search"}],
-            instructions=SYSTEM_INSTRUCTION,
+            instructions=system_instruction,
             input=input_prompt,
         )
 
@@ -83,7 +87,7 @@ class OpenAIProvider(BaseLLMProvider):
                     break
 
         debug_info = LLMDebugInfo(
-            system_prompt=SYSTEM_INSTRUCTION,
+            system_prompt=system_instruction,
             input_prompt=input_prompt,
             raw_response_text=raw_text,
         )
@@ -101,7 +105,7 @@ class OpenAIProvider(BaseLLMProvider):
 
             for entry in raw_news:
                 url = entry.get("source_url", "")
-                if url and not _is_allowed_source(url):
+                if url and not no_filter and not _is_allowed_source(url):
                     filtered_count += 1
                     url = ""
                 news_items.append(NewsItem(
@@ -113,7 +117,7 @@ class OpenAIProvider(BaseLLMProvider):
 
             for entry in raw_events:
                 url = entry.get("source_url", "")
-                if url and not _is_allowed_source(url):
+                if url and not no_filter and not _is_allowed_source(url):
                     filtered_count += 1
                     url = ""
                 events_items.append(EventItem(

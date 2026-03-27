@@ -128,3 +128,63 @@ def test_plain_stop_word_still_filtered(parser):
     result = parser.parse("!gaston FOR THE news")
     assert result is not None
     assert result.ticker == ""
+
+
+# --- Flag parsing tests ---
+
+
+def test_no_filter_flag_parsed(parser):
+    result = parser.parse("!gaston AAPL --no-filter")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.no_filter is True
+    assert result.jar_jar is False
+
+
+def test_jar_jar_flag_parsed(parser):
+    result = parser.parse("!gaston AAPL --jar-jar")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.no_filter is False
+    assert result.jar_jar is True
+
+
+def test_both_flags_parsed(parser):
+    result = parser.parse("!gaston AAPL 2026-01-15 --no-filter --jar-jar")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.date == "2026-01-15"
+    assert result.no_filter is True
+    assert result.jar_jar is True
+
+
+def test_flags_anywhere_in_message(parser):
+    result = parser.parse("!gaston --jar-jar NVDA --no-filter")
+    assert result is not None
+    assert result.ticker == "NVDA"
+    assert result.no_filter is True
+    assert result.jar_jar is True
+
+
+def test_no_flags_gives_false_defaults(parser):
+    result = parser.parse("!gaston AAPL")
+    assert result is not None
+    assert result.no_filter is False
+    assert result.jar_jar is False
+
+
+def test_flags_are_case_insensitive(parser):
+    result = parser.parse("!gaston AAPL --NO-FILTER")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.no_filter is True
+
+
+def test_flags_stripped_before_ticker_extraction(parser):
+    """Flags must not interfere with ticker or date extraction."""
+    result = parser.parse("!gaston --no-filter TSLA 2026-03-20 --jar-jar")
+    assert result is not None
+    assert result.ticker == "TSLA"
+    assert result.date == "2026-03-20"
+    assert result.no_filter is True
+    assert result.jar_jar is True

@@ -81,7 +81,12 @@ async def handle_message(event: dict, say) -> None:
 
     try:
         search_date = ticker_query.date or _date.today().isoformat()
-        news_result, debug_info = await llm.search_and_summarize(ticker_query.ticker, date=search_date)
+        news_result, debug_info = await llm.search_and_summarize(
+            ticker_query.ticker,
+            date=search_date,
+            no_filter=ticker_query.no_filter,
+            jar_jar=ticker_query.jar_jar,
+        )
     except Exception as exc:
         logger.exception(
             "Error while processing ticker %s", ticker_query.ticker
