@@ -33,6 +33,22 @@ formatter = SlackFormatter()
 app = AsyncApp(token=os.environ["SLACK_BOT_TOKEN"])
 
 # ---------------------------------------------------------------------------
+# Help text for --info flag
+# ---------------------------------------------------------------------------
+_INFO_TEXT = (
+    "📈 *Gaston — Your Stock News Bot*\n\n"
+    "*How to use:*\n"
+    "• `!gaston AAPL` — Get today's top news for a ticker\n"
+    "• `!gaston TSLA 2026-03-20` — Get news from a specific date\n"
+    "• `!gaston III.L` — Works with international tickers too\n\n"
+    "*Options:*\n"
+    "• `--no-filter` — Include sources from any website (not just Reuters, Yahoo Finance, etc.)\n"
+    "• `--info` — Show this help message\n\n"
+    "*Sources:* Reuters, Yahoo Finance, Investing.com, MarketWatch\n"
+    "*Tip:* Gaston responds in the thread so your channel stays tidy! 🧵"
+)
+
+# ---------------------------------------------------------------------------
 # Optional debug logger (disabled when SLACK_LOG_CHANNEL is unset/empty)
 # ---------------------------------------------------------------------------
 _log_channel = os.environ.get("SLACK_LOG_CHANNEL", "").strip()
@@ -60,6 +76,10 @@ async def handle_message(event: dict, say) -> None:
             log_thread_ts = await debug_logger.start_trace(user_id, text)
         except Exception:
             pass
+
+    if ticker_query.info:
+        await say(text=_INFO_TEXT, thread_ts=thread_ts)
+        return
 
     if not ticker_query.ticker:
         await say(

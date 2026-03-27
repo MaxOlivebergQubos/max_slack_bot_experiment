@@ -40,6 +40,7 @@ _STOP_WORDS = frozenset(
 _TICKER_RE = re.compile(r"\b([A-Z][A-Z0-9]{0,4}(?:\.[A-Z]{1,4})?)\b")
 _FLAG_NO_FILTER = re.compile(r"--no-filter", re.IGNORECASE)
 _FLAG_JAR_JAR = re.compile(r"--jar-jar", re.IGNORECASE)
+_FLAG_INFO = re.compile(r"--info", re.IGNORECASE)
 
 # Matches YYYY-MM-DD date patterns
 _DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -54,6 +55,7 @@ class TickerQuery:
     date: str | None = None  # e.g. "2025-01-31", None means "latest"
     no_filter: bool = False
     jar_jar: bool = False
+    info: bool = False
 
 
 class TickerMessageParser(BaseMessageParser[TickerQuery]):
@@ -84,10 +86,13 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
 
         no_filter = bool(_FLAG_NO_FILTER.search(raw_message))
         jar_jar = bool(_FLAG_JAR_JAR.search(raw_message))
+        info = bool(_FLAG_INFO.search(raw_message))
 
         # Strip flags before ticker/date extraction so they don't interfere
         clean_message = _FLAG_NO_FILTER.sub("", raw_message)
-        clean_message = _FLAG_JAR_JAR.sub("", clean_message).strip()
+        clean_message = _FLAG_JAR_JAR.sub("", clean_message)
+        clean_message = _FLAG_INFO.sub("", clean_message)
+        clean_message = clean_message.strip()
 
         ticker = self._extract_ticker(clean_message)
 
@@ -96,10 +101,10 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
 
         if ticker is None:
             return TickerQuery(ticker="", raw_message=raw_message, date=date,
-                               no_filter=no_filter, jar_jar=jar_jar)
+                               no_filter=no_filter, jar_jar=jar_jar, info=info)
 
         return TickerQuery(ticker=ticker, raw_message=raw_message, date=date,
-                           no_filter=no_filter, jar_jar=jar_jar)
+                           no_filter=no_filter, jar_jar=jar_jar, info=info)
 
     @staticmethod
     def _extract_ticker(text: str) -> str | None:

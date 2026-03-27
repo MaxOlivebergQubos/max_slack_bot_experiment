@@ -188,3 +188,39 @@ def test_flags_stripped_before_ticker_extraction(parser):
     assert result.date == "2026-03-20"
     assert result.no_filter is True
     assert result.jar_jar is True
+
+
+# --- --info flag tests ---
+
+
+def test_info_flag_alone(parser):
+    result = parser.parse("!gaston --info")
+    assert result is not None
+    assert result.info is True
+    assert result.ticker == ""
+
+
+def test_info_flag_with_ticker(parser):
+    result = parser.parse("!gaston AAPL --info")
+    assert result is not None
+    assert result.info is True
+    assert result.ticker == "AAPL"
+
+
+def test_info_flag_case_insensitive(parser):
+    result = parser.parse("!gaston --INFO")
+    assert result is not None
+    assert result.info is True
+
+
+def test_info_flag_with_no_filter(parser):
+    result = parser.parse("!gaston --info --no-filter")
+    assert result is not None
+    assert result.info is True
+    assert result.no_filter is True
+
+
+def test_no_info_flag_gives_false_default(parser):
+    result = parser.parse("!gaston AAPL")
+    assert result is not None
+    assert result.info is False
