@@ -64,6 +64,18 @@ class SlackDebugLogger:
 
         return None
 
+    async def _resolve_display_name(self, user_id: str) -> str:
+        """Return the user's plain-text display name, falling back to *user_id*."""
+        try:
+            resp = await self._app.client.users_info(user=user_id)
+            profile = resp.get("user", {}).get("profile", {})
+            display_name = profile.get("display_name") or profile.get("real_name") or ""
+            if display_name:
+                return display_name
+        except Exception as exc:
+            logger.warning("slack_debug_logger: could not resolve display name for %r: %s", user_id, exc)
+        return user_id
+
     async def start_trace(self, user_id: str, raw_text: str) -> str | None:
         """Post the header message and return the thread_ts for follow-up replies.
 
@@ -73,10 +85,12 @@ class SlackDebugLogger:
         if channel_id is None:
             return None
 
+        display_name = await self._resolve_display_name(user_id)
+
         try:
             resp = await self._app.client.chat_postMessage(
                 channel=channel_id,
-                text=f"🔍 User <@{user_id}> invoked Gaston: `{raw_text}`",
+                text=f"🔍 User {display_name} invoked Gaston: `{raw_text}`",
             )
             return resp["ts"]
         except Exception as exc:
