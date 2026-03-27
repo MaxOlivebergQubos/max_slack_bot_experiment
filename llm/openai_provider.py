@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from openai import AsyncOpenAI
 
 from llm.base import BaseLLMProvider
-from llm.models import EventItem, FilteredResponse, NewsItem
+from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
 from llm.prompts import INPUT_LATEST, INPUT_WITH_DATE, SYSTEM_INSTRUCTION
 
 _ALLOWED_DOMAINS = frozenset({
@@ -43,7 +43,7 @@ class OpenAIProvider(BaseLLMProvider):
         self._client = AsyncOpenAI(api_key=api_key or os.environ["OPENAI_API_KEY"])
         self._model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-search-preview")
 
-    async def search_and_summarize(self, ticker: str, date: str | None = None) -> FilteredResponse:
+    async def search_and_summarize(self, ticker: str, date: str | None = None) -> tuple[FilteredResponse, LLMDebugInfo]:
         """Search the web for news about *ticker* and return structured, filtered results.
 
         Uses the OpenAI Responses API with the built-in ``web_search`` tool so
@@ -55,8 +55,11 @@ class OpenAIProvider(BaseLLMProvider):
                 around that specific date instead of the latest news.
 
         Returns:
-            A :class:`FilteredResponse` with parsed news items, events, and a
-            count of how many items were removed by the domain filter.
+            A tuple of (:class:`FilteredResponse`, :class:`LLMDebugInfo`).
+            FilteredResponse contains parsed news items, events, and a count of
+            how many items were removed by the domain filter.
+            LLMDebugInfo contains the system prompt, input prompt, and raw
+            response text for debugging purposes.
         """
         if date is None:
             input_prompt = INPUT_LATEST.format(ticker=ticker)
@@ -78,6 +81,12 @@ class OpenAIProvider(BaseLLMProvider):
                         break
                 if raw_text:
                     break
+
+        debug_info = LLMDebugInfo(
+            system_prompt=SYSTEM_INSTRUCTION,
+            input_prompt=input_prompt,
+            raw_response_text=raw_text,
+        )
 
         try:
             cleaned = _strip_code_fences(raw_text)
@@ -118,7 +127,7 @@ class OpenAIProvider(BaseLLMProvider):
                 news=news_items,
                 events=events_items,
                 filtered_count=filtered_count,
-            )
+            ), debug_info
 
         except (json.JSONDecodeError, KeyError, TypeError):
             return FilteredResponse(
@@ -130,5 +139,5 @@ class OpenAIProvider(BaseLLMProvider):
                 )],
                 events=[],
                 filtered_count=0,
-            )
+            ), debug_info
 

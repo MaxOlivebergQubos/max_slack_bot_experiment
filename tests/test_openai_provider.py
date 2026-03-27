@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from llm.openai_provider import OpenAIProvider
-from llm.models import FilteredResponse, NewsItem, EventItem
+from llm.models import FilteredResponse, LLMDebugInfo, NewsItem, EventItem
 
 
 def _make_response(output_text=None):
@@ -52,9 +52,10 @@ async def test_parses_json_news_items(provider):
     mock_response = _make_json_response(news=news)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert isinstance(result, FilteredResponse)
+    assert isinstance(debug_info, LLMDebugInfo)
     assert len(result.news) == 2
     assert result.news[0].headline == "AAPL revenue up 8%"
     assert result.news[0].source_url == "https://reuters.com/aapl"
@@ -69,7 +70,7 @@ async def test_parses_json_events(provider):
     mock_response = _make_json_response(events=events)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert len(result.events) == 1
     assert result.events[0].description == "Q2 2026 earnings call"
@@ -81,7 +82,7 @@ async def test_fallback_on_empty_response(provider):
     mock_response = _make_response(output_text=None)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("XYZ")
+    result, debug_info = await provider.search_and_summarize("XYZ")
 
     assert isinstance(result, FilteredResponse)
     assert len(result.news) == 1
@@ -94,7 +95,7 @@ async def test_fallback_on_invalid_json(provider):
     mock_response = _make_response(output_text="This is not JSON at all.")
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("TSLA")
+    result, debug_info = await provider.search_and_summarize("TSLA")
 
     assert isinstance(result, FilteredResponse)
     assert "No recent news found for TSLA." in result.news[0].headline
@@ -108,7 +109,7 @@ async def test_strips_markdown_code_fences(provider):
     mock_response = _make_response(output_text=fenced)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert len(result.news) == 1
     assert result.news[0].headline == "Test"
@@ -124,7 +125,7 @@ async def test_hard_filter_removes_offsite_news_urls(provider):
     mock_response = _make_json_response(news=news)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert result.news[0].source_url == "https://reuters.com/aapl"
     assert result.news[1].source_url == ""  # cleared
@@ -140,7 +141,7 @@ async def test_hard_filter_removes_offsite_event_urls(provider):
     mock_response = _make_json_response(events=events)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert result.events[0].source_url == ""
     assert result.filtered_count == 1
@@ -155,7 +156,7 @@ async def test_empty_source_url_not_counted_as_filtered(provider):
     mock_response = _make_json_response(news=news)
     provider._client.responses.create = AsyncMock(return_value=mock_response)
 
-    result = await provider.search_and_summarize("AAPL")
+    result, debug_info = await provider.search_and_summarize("AAPL")
 
     assert result.filtered_count == 0
 
@@ -183,6 +184,21 @@ async def test_date_prompt_used_when_date_provided(provider):
     call_kwargs = provider._client.responses.create.call_args.kwargs
     assert "2025-01-31" in call_kwargs["input"]
     assert "latest" not in call_kwargs["input"].lower()
+
+
+@pytest.mark.asyncio
+async def test_debug_info_contains_prompts_and_raw_response(provider):
+    """LLMDebugInfo must carry the system prompt, input prompt, and raw text."""
+    payload = json.dumps({"news": [], "events": []})
+    mock_response = _make_response(output_text=payload)
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result, debug_info = await provider.search_and_summarize("AAPL")
+
+    assert isinstance(debug_info, LLMDebugInfo)
+    assert len(debug_info.system_prompt) > 0
+    assert "AAPL" in debug_info.input_prompt
+    assert debug_info.raw_response_text == payload
 
 
 # --- Domain-filter helper tests ---

@@ -3,6 +3,14 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class LLMDebugInfo:
+    """Intermediate data from an LLM call, useful for debugging."""
+    system_prompt: str
+    input_prompt: str
+    raw_response_text: str
+
+
+@dataclass
 class NewsItem:
     """A single news bullet from the LLM response."""
     date: str            # e.g. "2026-03-27"
