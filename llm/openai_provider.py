@@ -7,6 +7,7 @@ from openai import AsyncOpenAI
 
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, NewsItem
+from llm.prompts import INPUT_LATEST, INPUT_WITH_DATE, SYSTEM_INSTRUCTION
 
 _ALLOWED_DOMAINS = frozenset({
     "reuters.com",
@@ -14,33 +15,6 @@ _ALLOWED_DOMAINS = frozenset({
     "investing.com",
     "marketwatch.com",
 })
-
-_INSTRUCTIONS = (
-    "You are a financial news summarizer bot. "
-    "Search reuters.com, finance.yahoo.com, investing.com, and marketwatch.com for news "
-    "about the given stock ticker. "
-    "Also search for upcoming events (earnings, ex-dividend dates, shareholder meetings). "
-    "You MUST respond with ONLY a JSON object — no markdown, no commentary, no extra text. "
-    "The JSON must match this exact schema:\n"
-    "{\n"
-    '  "news": [\n'
-    '    {"date": "YYYY-MM-DD", "headline": "short headline", "source_url": "https://...", "source_name": "Reuters"}\n'
-    "  ],\n"
-    '  "events": [\n'
-    '    {"date": "YYYY-MM-DD", "description": "event description", "source_url": "https://...", "source_name": "Yahoo Finance"}\n'
-    "  ]\n"
-    "}\n\n"
-    "Rules:\n"
-    "- news: 2-3 items max. Each headline should be Bloomberg-terminal terse.\n"
-    "- events: 0-2 items. Include earnings dates, ex-dividend dates, investor days, etc.\n"
-    "- date: Always YYYY-MM-DD format.\n"
-    "- source_url: MUST be from reuters.com, finance.yahoo.com, investing.com, or marketwatch.com ONLY.\n"
-    "- source_name: Human-readable site name.\n"
-    "- If no news found, set news to an empty array [].\n"
-    "- If no events found, set events to an empty array [].\n"
-    "- Do NOT include any text outside the JSON object.\n"
-    "- Only include news from the date specified in the query, or within 1-2 days of it."
-)
 
 
 def _is_allowed_source(url: str) -> bool:
@@ -85,24 +59,13 @@ class OpenAIProvider(BaseLLMProvider):
             count of how many items were removed by the domain filter.
         """
         if date is None:
-            input_prompt = (
-                f"Search for the latest news about {ticker} stock from TODAY on "
-                "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
-                "Only include articles published today or yesterday. "
-                f"Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
-            )
+            input_prompt = INPUT_LATEST.format(ticker=ticker)
         else:
-            input_prompt = (
-                f"Search for news about {ticker} stock from {date} on "
-                "reuters.com, finance.yahoo.com, investing.com, and marketwatch.com. "
-                f"Only include articles published on {date} or within 1-2 days of it. "
-                "Do NOT include old or outdated articles. "
-                f"Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
-            )
+            input_prompt = INPUT_WITH_DATE.format(ticker=ticker, date=date)
         response = await self._client.responses.create(
             model=self._model,
             tools=[{"type": "web_search"}],
-            instructions=_INSTRUCTIONS,
+            instructions=SYSTEM_INSTRUCTION,
             input=input_prompt,
         )
 
