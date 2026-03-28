@@ -133,3 +133,11 @@ class SlackDebugLogger:
             thread_ts,
             f"❌ *Error:* `{error}`",
         )
+
+    async def log_jar_jar_reformulation(
+        self, thread_ts: str | None, original: str, reformulated: str
+    ) -> None:
+        await self.log_step(
+            thread_ts,
+            f"🐸 *Jar Jar reformulation:*\nOriginal: ```{_truncate(original)}```\nReformulated: ```{_truncate(reformulated)}```",
+        )

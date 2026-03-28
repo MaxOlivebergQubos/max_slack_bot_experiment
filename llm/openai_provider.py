@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from datetime import date as _date
@@ -10,6 +11,8 @@ from config import allowed_domains
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
 from llm.prompts import build_input_prompt, build_system_instruction
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_DOMAINS = allowed_domains()
 
@@ -44,6 +47,7 @@ class OpenAIProvider(BaseLLMProvider):
     async def search_and_summarize(
         self, ticker: str, date: str | None = None,
         *, no_filter: bool = False, jar_jar: bool = False,
+        verbose: bool = False,
         domains: frozenset[str] | None = None,
     ) -> tuple[FilteredResponse, LLMDebugInfo]:
         """Search the web for news about *ticker* and return structured, filtered results.
@@ -67,7 +71,7 @@ class OpenAIProvider(BaseLLMProvider):
         """
         effective_date = date if date is not None else _date.today().isoformat()
         input_prompt = build_input_prompt(ticker, effective_date, domains)
-        system_instruction = build_system_instruction(jar_jar=jar_jar, domains=domains)
+        system_instruction = build_system_instruction(verbose=verbose or jar_jar, domains=domains)
         response = await self._client.responses.create(
             model=self._model,
             tools=[{"type": "web_search"}],
@@ -143,4 +147,35 @@ class OpenAIProvider(BaseLLMProvider):
                 events=[],
                 filtered_count=0,
             ), debug_info
+
+    async def reformulate_as_jar_jar(self, text: str) -> str:
+        """Reformulate *text* in the style of Jar Jar Binks using a simple chat completion.
+
+        Args:
+            text: The original paragraph to reformulate.
+
+        Returns:
+            The reformulated text in Jar Jar Binks style, or the original text on failure.
+        """
+        prompt = (
+            "Reformulate the following paragraph as if you are Jar Jar Binks from Star Wars. "
+            "Use Jar Jar's speech patterns, mannerisms, and vocabulary "
+            "(e.g., 'meesa', 'yousa', 'muy muy', 'bombad', 'okeday'). "
+            "The factual content must remain accurate. "
+            "Keep it as a single paragraph.\n\n"
+            f"Original:\n{text}"
+        )
+        try:
+            response = await self._client.responses.create(
+                model=self._model,
+                input=prompt,
+            )
+            for item in response.output:
+                if item.type == "message":
+                    for block in item.content:
+                        if block.type == "output_text":
+                            return block.text.strip()
+        except Exception as exc:
+            logger.warning("reformulate_as_jar_jar: LLM call failed, returning original text: %s", exc)
+        return text
 

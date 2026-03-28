@@ -43,6 +43,8 @@ _INFO_TEXT = (
     "• `!gaston III.L` — Works with international tickers too\n\n"
     "*Options:*\n"
     "• `--no-filter` — Include sources from any website (not just Reuters, Yahoo Finance, etc.)\n"
+    "• `--verbose` — Get detailed paragraph summaries instead of terse headlines\n"
+    "• `--jar-jar` — Get verbose summaries reformulated in Jar Jar Binks style\n"
     "• `--info` — Show this help message\n\n"
     f"*Sources:* {source_names_str()}\n"
     "*Tip:* Gaston responds in the thread so your channel stays tidy! 🧵"
@@ -109,11 +111,20 @@ async def handle_message(event: dict, say) -> None:
         if ticker_query.plus_websites is not None:
             effective_domains = effective_domains | frozenset(ticker_query.plus_websites)
 
+        # When the user explicitly provides custom domains, disable the hard
+        # filter — they deliberately chose those sites, so we should trust them.
+        has_custom_domains = (
+            ticker_query.websites is not None or ticker_query.plus_websites is not None
+        )
+
+        # --jar-jar implies verbose for the first LLM call
+        use_verbose = ticker_query.verbose or ticker_query.jar_jar
+
         news_result, debug_info = await llm.search_and_summarize(
             ticker_query.ticker,
             date=ticker_query.date,
-            no_filter=ticker_query.no_filter,
-            jar_jar=ticker_query.jar_jar,
+            no_filter=ticker_query.no_filter or has_custom_domains,
+            verbose=use_verbose,
             domains=effective_domains,
         )
     except Exception as exc:
@@ -148,6 +159,43 @@ async def handle_message(event: dict, say) -> None:
             await debug_logger.log_filtered_result(log_thread_ts, news_result)
         except Exception:
             pass
+
+    # --- Jar Jar two-pass reformulation ---
+    if ticker_query.jar_jar:
+        if debug_logger is not None:
+            try:
+                await debug_logger.log_step(log_thread_ts, "🐸 *Starting Jar Jar reformulation pass...*")
+            except Exception:
+                pass
+
+        async def _apply_jar_jar(original: str) -> str:
+            try:
+                return await llm.reformulate_as_jar_jar(original)
+            except Exception:
+                logger.warning("Jar Jar reformulation failed for text %r, keeping original", original[:50])
+                return original
+
+        for news_item in news_result.news:
+            if news_item.headline:
+                original = news_item.headline
+                reformulated = await _apply_jar_jar(original)
+                if debug_logger is not None:
+                    try:
+                        await debug_logger.log_jar_jar_reformulation(log_thread_ts, original, reformulated)
+                    except Exception:
+                        pass
+                news_item.headline = reformulated
+
+        for event_item in news_result.events:
+            if event_item.description:
+                original = event_item.description
+                reformulated = await _apply_jar_jar(original)
+                if debug_logger is not None:
+                    try:
+                        await debug_logger.log_jar_jar_reformulation(log_thread_ts, original, reformulated)
+                    except Exception:
+                        pass
+                event_item.description = reformulated
 
     message = formatter.format(news_result, ticker=ticker_query.ticker)
 

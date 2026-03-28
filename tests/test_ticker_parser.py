@@ -302,3 +302,60 @@ def test_websites_flag_strips_whitespace_from_domains(parser):
     result = parser.parse("!gaston AAPL --websites [ reddit.com , fool.com ]")
     assert result is not None
     assert result.websites == ["reddit.com", "fool.com"]
+
+
+# --- --verbose flag tests ---
+
+
+def test_verbose_flag_parsed(parser):
+    result = parser.parse("!gaston AAPL --verbose")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.verbose is True
+    assert result.jar_jar is False
+
+
+def test_no_verbose_flag_gives_false_default(parser):
+    result = parser.parse("!gaston AAPL")
+    assert result is not None
+    assert result.verbose is False
+
+
+def test_verbose_flag_case_insensitive(parser):
+    result = parser.parse("!gaston AAPL --VERBOSE")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.verbose is True
+
+
+def test_verbose_flag_with_ticker_and_date(parser):
+    result = parser.parse("!gaston TSLA 2026-03-20 --verbose")
+    assert result is not None
+    assert result.ticker == "TSLA"
+    assert result.date == "2026-03-20"
+    assert result.verbose is True
+
+
+def test_verbose_flag_stripped_before_ticker_extraction(parser):
+    """--verbose must not interfere with ticker or date extraction."""
+    result = parser.parse("!gaston --verbose AAPL 2026-01-15")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.date == "2026-01-15"
+    assert result.verbose is True
+
+
+def test_verbose_and_jar_jar_together(parser):
+    result = parser.parse("!gaston AAPL --verbose --jar-jar")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.verbose is True
+    assert result.jar_jar is True
+
+
+def test_verbose_with_no_filter(parser):
+    result = parser.parse("!gaston AAPL --verbose --no-filter")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.verbose is True
+    assert result.no_filter is True

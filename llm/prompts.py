@@ -100,22 +100,21 @@ def _build_json_rules(news_description: str, effective_domains: str) -> str:
 
 
 def build_system_instruction(
-    jar_jar: bool = False, domains: frozenset[str] | None = None
+    jar_jar: bool = False, domains: frozenset[str] | None = None,
+    verbose: bool = False,
 ) -> str:
-    """Compose the full system instruction, optionally with Jar Jar style or custom domains."""
+    """Compose the full system instruction, optionally with verbose or custom domains."""
     effective_domains = domains_str_from(domains) if domains is not None else domains_str()
     search_sites = (
         f"Search {effective_domains} "
         "for news about the given stock ticker."
     )
     news_description = (
-        "a full paragraph summarising the article in detail" if jar_jar
+        "a full paragraph summarising the article in detail" if (verbose or jar_jar)
         else "Bloomberg-terminal terse"
     )
     json_rules = _build_json_rules(news_description, effective_domains)
     parts = [ROLE, search_sites, EVENTS_INSTRUCTION, JSON_SCHEMA, json_rules, RECENCY_RULE]
-    if jar_jar:
-        parts.append(JAR_JAR_STYLE)
     return "\n\n".join(parts)
 
 
