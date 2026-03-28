@@ -60,6 +60,18 @@ JAR_JAR_STYLE = (
     "must be unmistakably Jar Jar Binks. Have fun with it!"
 )
 
+JAR_JAR_JSON_RULES = (
+    "Rules:\n"
+    "- news: 2-3 items max. Each headline should be a full paragraph summarising the article in detail.\n"
+    "- events: 0-2 items. Include earnings dates, ex-dividend dates, investor days, etc.\n"
+    "- date: Always YYYY-MM-DD format.\n"
+    f"- source_url: MUST be from {domains_str()} ONLY.\n"
+    "- source_name: Human-readable site name.\n"
+    "- If no news found, set news to an empty array [].\n"
+    "- If no events found, set events to an empty array [].\n"
+    "- Do NOT include any text outside the JSON object."
+)
+
 # -- Helpers to compose the full system instruction -------------------------
 
 SYSTEM_INSTRUCTION = "\n\n".join([
@@ -74,7 +86,8 @@ SYSTEM_INSTRUCTION = "\n\n".join([
 
 def build_system_instruction(jar_jar: bool = False) -> str:
     """Compose the full system instruction, optionally with Jar Jar style."""
-    parts = [ROLE, SEARCH_SITES, EVENTS_INSTRUCTION, JSON_SCHEMA, JSON_RULES, RECENCY_RULE]
+    json_rules = JAR_JAR_JSON_RULES if jar_jar else JSON_RULES
+    parts = [ROLE, SEARCH_SITES, EVENTS_INSTRUCTION, JSON_SCHEMA, json_rules, RECENCY_RULE]
     if jar_jar:
         parts.append(JAR_JAR_STYLE)
     return "\n\n".join(parts)

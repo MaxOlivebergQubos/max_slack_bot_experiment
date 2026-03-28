@@ -267,6 +267,18 @@ async def test_jar_jar_flag_adds_style_to_system_prompt(provider):
 
 
 @pytest.mark.asyncio
+async def test_jar_jar_flag_uses_paragraph_rule_in_system_prompt(provider):
+    """With jar_jar=True, the system prompt should ask for full-paragraph headlines."""
+    mock_response = _make_json_response(news=[])
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result, debug_info = await provider.search_and_summarize("AAPL", jar_jar=True)
+
+    assert "full paragraph" in debug_info.system_prompt
+    assert "Bloomberg" not in debug_info.system_prompt
+
+
+@pytest.mark.asyncio
 async def test_jar_jar_false_no_style_in_prompt(provider):
     """Without jar_jar flag, the system prompt should NOT contain Jar Jar style."""
     mock_response = _make_json_response(news=[])
@@ -275,6 +287,18 @@ async def test_jar_jar_false_no_style_in_prompt(provider):
     result, debug_info = await provider.search_and_summarize("AAPL", jar_jar=False)
 
     assert "Jar Jar" not in debug_info.system_prompt
+
+
+@pytest.mark.asyncio
+async def test_jar_jar_false_uses_bloomberg_terse_rule_in_system_prompt(provider):
+    """Without jar_jar flag, the system prompt should use Bloomberg-terse headline rule."""
+    mock_response = _make_json_response(news=[])
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result, debug_info = await provider.search_and_summarize("AAPL", jar_jar=False)
+
+    assert "Bloomberg" in debug_info.system_prompt
+    assert "full paragraph" not in debug_info.system_prompt
 
 
 @pytest.mark.asyncio
