@@ -34,6 +34,8 @@ app = AsyncApp(token=os.environ["SLACK_BOT_TOKEN"])
 
 # ---------------------------------------------------------------------------
 # Help text for --info flag
+# NOTE: Do NOT add --jar-jar here. It is a hidden easter-egg flag and must
+# not be advertised in the help text. See test_info_text_does_not_mention_jar_jar.
 # ---------------------------------------------------------------------------
 _INFO_TEXT = (
     "📈 *Gaston — Your Stock News Bot*\n\n"
@@ -44,7 +46,6 @@ _INFO_TEXT = (
     "*Options:*\n"
     "• `--no-filter` — Include sources from any website (not just Reuters, Yahoo Finance, etc.)\n"
     "• `--verbose` — Get detailed paragraph summaries instead of terse headlines\n"
-    "• `--jar-jar` — Get verbose summaries reformulated in Jar Jar Binks style\n"
     "• `--info` — Show this help message\n\n"
     f"*Sources:* {source_names_str()}\n"
     "*Tip:* Gaston responds in the thread so your channel stays tidy! 🧵"
