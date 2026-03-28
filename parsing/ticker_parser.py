@@ -1,7 +1,7 @@
 """Ticker-aware message parser for the gaston stock-news bot."""
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from parsing.base import BaseMessageParser
 

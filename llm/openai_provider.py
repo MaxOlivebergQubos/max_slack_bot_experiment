@@ -9,7 +9,7 @@ from openai import AsyncOpenAI
 from config import allowed_domains
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
-from llm.prompts import INPUT_WITH_DATE, SYSTEM_INSTRUCTION, build_system_instruction
+from llm.prompts import INPUT_WITH_DATE, build_system_instruction
 
 _ALLOWED_DOMAINS = allowed_domains()
 
