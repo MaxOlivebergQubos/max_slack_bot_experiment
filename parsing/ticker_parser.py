@@ -41,6 +41,8 @@ _TICKER_RE = re.compile(r"\b([A-Z][A-Z0-9]{0,4}(?:\.[A-Z]{1,4})?)\b")
 _FLAG_NO_FILTER = re.compile(r"--no-filter", re.IGNORECASE)
 _FLAG_JAR_JAR = re.compile(r"--jar-jar", re.IGNORECASE)
 _FLAG_INFO = re.compile(r"--info", re.IGNORECASE)
+_FLAG_WEBSITES = re.compile(r"--websites\s*\[([^\]]*)\]", re.IGNORECASE)
+_FLAG_PLUS_WEBSITES = re.compile(r"--plus-websites\s*\[([^\]]*)\]", re.IGNORECASE)
 
 # Matches YYYY-MM-DD date patterns
 _DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
@@ -56,6 +58,8 @@ class TickerQuery:
     no_filter: bool = False
     jar_jar: bool = False
     info: bool = False
+    websites: list[str] | None = None
+    plus_websites: list[str] | None = None
 
 
 class TickerMessageParser(BaseMessageParser[TickerQuery]):
@@ -88,10 +92,24 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
         jar_jar = bool(_FLAG_JAR_JAR.search(raw_message))
         info = bool(_FLAG_INFO.search(raw_message))
 
+        websites_match = _FLAG_WEBSITES.search(raw_message)
+        websites = (
+            [d.strip() for d in websites_match.group(1).split(",") if d.strip()]
+            if websites_match else None
+        )
+
+        plus_websites_match = _FLAG_PLUS_WEBSITES.search(raw_message)
+        plus_websites = (
+            [d.strip() for d in plus_websites_match.group(1).split(",") if d.strip()]
+            if plus_websites_match else None
+        )
+
         # Strip flags before ticker/date extraction so they don't interfere
         clean_message = _FLAG_NO_FILTER.sub("", raw_message)
         clean_message = _FLAG_JAR_JAR.sub("", clean_message)
         clean_message = _FLAG_INFO.sub("", clean_message)
+        clean_message = _FLAG_WEBSITES.sub("", clean_message)
+        clean_message = _FLAG_PLUS_WEBSITES.sub("", clean_message)
         clean_message = clean_message.strip()
 
         ticker = self._extract_ticker(clean_message)
@@ -101,10 +119,12 @@ class TickerMessageParser(BaseMessageParser[TickerQuery]):
 
         if ticker is None:
             return TickerQuery(ticker="", raw_message=raw_message, date=date,
-                               no_filter=no_filter, jar_jar=jar_jar, info=info)
+                               no_filter=no_filter, jar_jar=jar_jar, info=info,
+                               websites=websites, plus_websites=plus_websites)
 
         return TickerQuery(ticker=ticker, raw_message=raw_message, date=date,
-                           no_filter=no_filter, jar_jar=jar_jar, info=info)
+                           no_filter=no_filter, jar_jar=jar_jar, info=info,
+                           websites=websites, plus_websites=plus_websites)
 
     @staticmethod
     def _extract_ticker(text: str) -> str | None:

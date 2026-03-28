@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
-from config import source_names_str
+from config import allowed_domains, source_names_str
 from debug.slack_debug_logger import SlackDebugLogger
 from formatting.slack_formatter import SlackFormatter
 from llm.openai_provider import OpenAIProvider
@@ -100,11 +100,21 @@ async def handle_message(event: dict, say) -> None:
             pass
 
     try:
+        # Compute per-query effective domain set (never mutates module-level state)
+        effective_domains = (
+            frozenset(ticker_query.websites)
+            if ticker_query.websites is not None
+            else allowed_domains()
+        )
+        if ticker_query.plus_websites is not None:
+            effective_domains = effective_domains | frozenset(ticker_query.plus_websites)
+
         news_result, debug_info = await llm.search_and_summarize(
             ticker_query.ticker,
             date=ticker_query.date,
             no_filter=ticker_query.no_filter,
             jar_jar=ticker_query.jar_jar,
+            domains=effective_domains,
         )
     except Exception as exc:
         logger.exception(

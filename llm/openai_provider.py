@@ -9,16 +9,17 @@ from openai import AsyncOpenAI
 from config import allowed_domains
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
-from llm.prompts import INPUT_WITH_DATE, build_system_instruction
+from llm.prompts import build_input_prompt, build_system_instruction
 
 _ALLOWED_DOMAINS = allowed_domains()
 
 
-def _is_allowed_source(url: str) -> bool:
+def _is_allowed_source(url: str, domains: frozenset[str] | None = None) -> bool:
     """Return True if the URL's domain ends with one of the allowed domains."""
+    effective_domains = domains if domains is not None else _ALLOWED_DOMAINS
     try:
         hostname = urlparse(url).hostname or ""
-        return any(hostname == domain or hostname.endswith("." + domain) for domain in _ALLOWED_DOMAINS)
+        return any(hostname == domain or hostname.endswith("." + domain) for domain in effective_domains)
     except Exception:
         return False
 
@@ -43,6 +44,7 @@ class OpenAIProvider(BaseLLMProvider):
     async def search_and_summarize(
         self, ticker: str, date: str | None = None,
         *, no_filter: bool = False, jar_jar: bool = False,
+        domains: frozenset[str] | None = None,
     ) -> tuple[FilteredResponse, LLMDebugInfo]:
         """Search the web for news about *ticker* and return structured, filtered results.
 
@@ -53,6 +55,8 @@ class OpenAIProvider(BaseLLMProvider):
             ticker: The stock ticker symbol (e.g. ``"AAPL"``).
             date: Optional YYYY-MM-DD date string. If provided, search for news
                 around that specific date instead of the latest news.
+            domains: Optional per-query domain override. When provided, replaces
+                the default allowed-domains list for filtering and prompt building.
 
         Returns:
             A tuple of (:class:`FilteredResponse`, :class:`LLMDebugInfo`).
@@ -62,8 +66,8 @@ class OpenAIProvider(BaseLLMProvider):
             response text for debugging purposes.
         """
         effective_date = date if date is not None else _date.today().isoformat()
-        input_prompt = INPUT_WITH_DATE.format(ticker=ticker, date=effective_date)
-        system_instruction = build_system_instruction(jar_jar=jar_jar)
+        input_prompt = build_input_prompt(ticker, effective_date, domains)
+        system_instruction = build_system_instruction(jar_jar=jar_jar, domains=domains)
         response = await self._client.responses.create(
             model=self._model,
             tools=[{"type": "web_search"}],
@@ -100,7 +104,7 @@ class OpenAIProvider(BaseLLMProvider):
 
             for entry in raw_news:
                 url = entry.get("source_url", "")
-                if url and not no_filter and not _is_allowed_source(url):
+                if url and not no_filter and not _is_allowed_source(url, domains):
                     filtered_count += 1
                     url = ""
                 news_items.append(NewsItem(
@@ -112,7 +116,7 @@ class OpenAIProvider(BaseLLMProvider):
 
             for entry in raw_events:
                 url = entry.get("source_url", "")
-                if url and not no_filter and not _is_allowed_source(url):
+                if url and not no_filter and not _is_allowed_source(url, domains):
                     filtered_count += 1
                     url = ""
                 events_items.append(EventItem(

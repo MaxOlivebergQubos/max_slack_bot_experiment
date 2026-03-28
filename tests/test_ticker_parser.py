@@ -224,3 +224,81 @@ def test_no_info_flag_gives_false_default(parser):
     result = parser.parse("!gaston AAPL")
     assert result is not None
     assert result.info is False
+
+
+# --- --websites flag tests ---
+
+
+def test_websites_flag_single_domain(parser):
+    result = parser.parse("!gaston AAPL --websites [reddit.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.websites == ["reddit.com"]
+    assert result.plus_websites is None
+
+
+def test_websites_flag_multiple_domains(parser):
+    result = parser.parse("!gaston AAPL --websites [reddit.com, fool.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.websites == ["reddit.com", "fool.com"]
+
+
+def test_plus_websites_flag_single_domain(parser):
+    result = parser.parse("!gaston TSLA --plus-websites [reddit.com]")
+    assert result is not None
+    assert result.ticker == "TSLA"
+    assert result.plus_websites == ["reddit.com"]
+    assert result.websites is None
+
+
+def test_both_websites_flags_together(parser):
+    result = parser.parse("!gaston AAPL --websites [reddit.com] --plus-websites [fool.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.websites == ["reddit.com"]
+    assert result.plus_websites == ["fool.com"]
+
+
+def test_no_websites_flags_gives_none_defaults(parser):
+    result = parser.parse("!gaston AAPL")
+    assert result is not None
+    assert result.websites is None
+    assert result.plus_websites is None
+
+
+def test_websites_flag_with_ticker_and_date(parser):
+    result = parser.parse("!gaston AAPL 2026-01-15 --websites [reddit.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.date == "2026-01-15"
+    assert result.websites == ["reddit.com"]
+
+
+def test_websites_flag_stripped_before_ticker_extraction(parser):
+    """Website flags must not interfere with ticker or date extraction."""
+    result = parser.parse("!gaston --websites [reddit.com] TSLA 2026-03-20")
+    assert result is not None
+    assert result.ticker == "TSLA"
+    assert result.date == "2026-03-20"
+    assert result.websites == ["reddit.com"]
+
+
+def test_websites_flag_case_insensitive(parser):
+    result = parser.parse("!gaston AAPL --WEBSITES [reddit.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.websites == ["reddit.com"]
+
+
+def test_plus_websites_flag_case_insensitive(parser):
+    result = parser.parse("!gaston AAPL --PLUS-WEBSITES [reddit.com]")
+    assert result is not None
+    assert result.ticker == "AAPL"
+    assert result.plus_websites == ["reddit.com"]
+
+
+def test_websites_flag_strips_whitespace_from_domains(parser):
+    result = parser.parse("!gaston AAPL --websites [ reddit.com , fool.com ]")
+    assert result is not None
+    assert result.websites == ["reddit.com", "fool.com"]
