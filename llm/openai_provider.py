@@ -10,7 +10,7 @@ from openai import AsyncOpenAI
 from config import allowed_domains
 from llm.base import BaseLLMProvider
 from llm.models import EventItem, FilteredResponse, LLMDebugInfo, NewsItem
-from llm.prompts import build_input_prompt, build_system_instruction
+from llm.prompts import JAR_JAR_STYLE, build_input_prompt, build_system_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -157,14 +157,7 @@ class OpenAIProvider(BaseLLMProvider):
         Returns:
             The reformulated text in Jar Jar Binks style, or the original text on failure.
         """
-        prompt = (
-            "Reformulate the following paragraph as if you are Jar Jar Binks from Star Wars. "
-            "Use Jar Jar's speech patterns, mannerisms, and vocabulary "
-            "(e.g., 'meesa', 'yousa', 'muy muy', 'bombad', 'okeday'). "
-            "The factual content must remain accurate. "
-            "Keep it as a single paragraph.\n\n"
-            f"Original:\n{text}"
-        )
+        prompt = JAR_JAR_STYLE.format(text=text)
         try:
             response = await self._client.responses.create(
                 model=self._model,

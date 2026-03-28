@@ -53,11 +53,22 @@ RECENCY_RULE = (
 )
 
 JAR_JAR_STYLE = (
-    "IMPORTANT STYLE OVERRIDE: You must write ALL text as if you are Jar Jar Binks "
-    "from Star Wars. Use Jar Jar's speech patterns, mannerisms, and vocabulary "
-    "(e.g., 'meesa', 'yousa', 'muy muy', 'bombad', 'okeday'). "
-    "The financial content must still be accurate, but the language style "
-    "must be unmistakably Jar Jar Binks. Have fun with it!"
+    "Reformulate the following paragraph as if you are Jar Jar Binks from Star Wars, "
+    "but ALSO you are a degenerate r/WallStreetBets retail trader who is EXTREMELY "
+    "bullish on everything. You love diamond hands 💎🙌, rockets 🚀🚀🚀, tendies 🍗, "
+    "and calling everything a YOLO play. You think every stock is going to the moon. "
+    "Bears are always wrong. Every dip is a buying opportunity. "
+    "Use Jar Jar's speech patterns and vocabulary "
+    "(e.g., 'meesa', 'yousa', 'muy muy', 'bombad', 'okeday') "
+    "mixed with WSB slang (e.g., 'diamond hands', 'to the moon', 'tendies', "
+    "'smooth brain', 'ape strong together', 'wife\\'s boyfriend', 'HODL', "
+    "'this is not financial advice', 'sir this is a Wendy\\'s', 'buy the dip'). "
+    "Sprinkle in rocket emojis 🚀 and diamond emojis 💎 liberally. "
+    "The factual financial content MUST remain accurate — do NOT change any numbers, "
+    "dates, company names, or events — but the tone should be unhinged optimism "
+    "filtered through Jar Jar's mangled grammar. "
+    "Keep it as a single paragraph.\n\n"
+    "Original:\n{text}"
 )
 
 JAR_JAR_JSON_RULES = (
