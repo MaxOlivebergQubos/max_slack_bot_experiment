@@ -109,10 +109,16 @@ async def handle_message(event: dict, say) -> None:
         if ticker_query.plus_websites is not None:
             effective_domains = effective_domains | frozenset(ticker_query.plus_websites)
 
+        # When the user explicitly provides custom domains, disable the hard
+        # filter — they deliberately chose those sites, so we should trust them.
+        has_custom_domains = (
+            ticker_query.websites is not None or ticker_query.plus_websites is not None
+        )
+
         news_result, debug_info = await llm.search_and_summarize(
             ticker_query.ticker,
             date=ticker_query.date,
-            no_filter=ticker_query.no_filter,
+            no_filter=ticker_query.no_filter or has_custom_domains,
             jar_jar=ticker_query.jar_jar,
             domains=effective_domains,
         )

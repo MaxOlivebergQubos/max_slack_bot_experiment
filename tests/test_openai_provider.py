@@ -314,3 +314,44 @@ async def test_no_filter_false_still_filters(provider):
 
     assert result.news[0].source_url == ""
     assert result.filtered_count == 1
+
+
+# --- Custom domains (--websites / --plus-websites) filter tests ---
+
+
+@pytest.mark.asyncio
+async def test_custom_domains_not_filtered_when_no_filter_true(provider):
+    """URLs from a user-specified custom domain are kept when no_filter=True."""
+    news = [
+        {"date": "2026-03-27", "headline": "Reddit post about AAPL", "source_url": "https://www.reddit.com/r/stocks/aapl", "source_name": "Reddit"},
+    ]
+    mock_response = _make_json_response(news=news)
+    provider._client.responses.create = AsyncMock(return_value=mock_response)
+
+    result, _ = await provider.search_and_summarize(
+        "AAPL",
+        no_filter=True,
+        domains=frozenset(["reddit.com"]),
+    )
+
+    assert result.news[0].source_url == "https://www.reddit.com/r/stocks/aapl"
+    assert result.filtered_count == 0
+
+
+@pytest.mark.asyncio
+async def test_custom_domains_url_passes_is_allowed_source():
+    """_is_allowed_source accepts URLs whose hostname is a subdomain of a custom domain."""
+    from llm.openai_provider import _is_allowed_source
+
+    assert _is_allowed_source("https://www.reddit.com/r/stocks/aapl", frozenset(["reddit.com"])) is True
+    assert _is_allowed_source("https://reddit.com/r/stocks/aapl", frozenset(["reddit.com"])) is True
+    assert _is_allowed_source("https://old.reddit.com/r/stocks/aapl", frozenset(["reddit.com"])) is True
+
+
+@pytest.mark.asyncio
+async def test_custom_domains_rejects_non_custom_url():
+    """_is_allowed_source rejects URLs not in the custom domain set."""
+    from llm.openai_provider import _is_allowed_source
+
+    # reuters.com is in the default allowed list but NOT in the custom set
+    assert _is_allowed_source("https://reuters.com/article/aapl", frozenset(["reddit.com"])) is False

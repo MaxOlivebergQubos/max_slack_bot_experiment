@@ -4,6 +4,8 @@ import sys
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from llm.models import FilteredResponse, LLMDebugInfo, NewsItem
+
 
 def _import_bot():
     """Import bot with env vars mocked to avoid real credential requirements."""
@@ -81,3 +83,51 @@ def test_info_text_does_not_mention_jar_jar(bot_module):
     """The easter-egg --jar-jar flag must not appear in the help text."""
     assert "jar-jar" not in bot_module._INFO_TEXT.lower()
     assert "jar jar" not in bot_module._INFO_TEXT.lower()
+
+
+def _make_filtered_response():
+    """Return a minimal FilteredResponse suitable for mocking search_and_summarize."""
+    return FilteredResponse(
+        news=[NewsItem(date="2026-03-27", headline="Test", source_url="https://www.reddit.com/r/stocks/aapl", source_name="Reddit")],
+        events=[],
+        filtered_count=0,
+    ), LLMDebugInfo(system_prompt="", input_prompt="", raw_response_text="")
+
+
+@pytest.mark.asyncio
+async def test_websites_flag_disables_hard_filter(bot_module, say, event_factory):
+    """When --websites is provided, search_and_summarize is called with no_filter=True."""
+    with patch.object(bot_module, "debug_logger", None), \
+         patch.object(bot_module.llm, "search_and_summarize", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_filtered_response()
+        await bot_module.handle_message(event_factory("!gaston AAPL --websites [reddit.com]"), say)
+
+    mock_llm.assert_called_once()
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("no_filter") is True
+
+
+@pytest.mark.asyncio
+async def test_plus_websites_flag_disables_hard_filter(bot_module, say, event_factory):
+    """When --plus-websites is provided, search_and_summarize is called with no_filter=True."""
+    with patch.object(bot_module, "debug_logger", None), \
+         patch.object(bot_module.llm, "search_and_summarize", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_filtered_response()
+        await bot_module.handle_message(event_factory("!gaston AAPL --plus-websites [reddit.com]"), say)
+
+    mock_llm.assert_called_once()
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("no_filter") is True
+
+
+@pytest.mark.asyncio
+async def test_no_websites_flag_respects_no_filter_default(bot_module, say, event_factory):
+    """Without --websites/--plus-websites, no_filter defaults to False."""
+    with patch.object(bot_module, "debug_logger", None), \
+         patch.object(bot_module.llm, "search_and_summarize", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_filtered_response()
+        await bot_module.handle_message(event_factory("!gaston AAPL"), say)
+
+    mock_llm.assert_called_once()
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("no_filter") is False
