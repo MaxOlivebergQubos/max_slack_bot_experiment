@@ -40,3 +40,15 @@ def domains_str() -> str:
     if len(domains) <= 1:
         return domains[0] if domains else ""
     return ", ".join(domains[:-1]) + ", and " + domains[-1]
+
+
+def domains_str_from(domains: frozenset[str]) -> str:
+    """Format an arbitrary set of domains with the same comma-and-'and' style.
+
+    Example: frozenset({'reddit.com', 'twitter.com'}) →
+        'reddit.com, and twitter.com'  (order may vary)
+    """
+    domain_list = sorted(domains)
+    if len(domain_list) <= 1:
+        return domain_list[0] if domain_list else ""
+    return ", ".join(domain_list[:-1]) + ", and " + domain_list[-1]

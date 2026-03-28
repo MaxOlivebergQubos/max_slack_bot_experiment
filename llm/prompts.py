@@ -4,7 +4,7 @@ Each constant is a self-contained piece of the system prompt or user prompt.
 Edit any block independently without touching the others.
 """
 
-from config import domains_str
+from config import domains_str, domains_str_from
 
 # -- System prompt building blocks ------------------------------------------
 
@@ -60,6 +60,18 @@ JAR_JAR_STYLE = (
     "must be unmistakably Jar Jar Binks. Have fun with it!"
 )
 
+JAR_JAR_JSON_RULES = (
+    "Rules:\n"
+    "- news: 2-3 items max. Each headline should be a full paragraph summarising the article in detail.\n"
+    "- events: 0-2 items. Include earnings dates, ex-dividend dates, investor days, etc.\n"
+    "- date: Always YYYY-MM-DD format.\n"
+    f"- source_url: MUST be from {domains_str()} ONLY.\n"
+    "- source_name: Human-readable site name.\n"
+    "- If no news found, set news to an empty array [].\n"
+    "- If no events found, set events to an empty array [].\n"
+    "- Do NOT include any text outside the JSON object."
+)
+
 # -- Helpers to compose the full system instruction -------------------------
 
 SYSTEM_INSTRUCTION = "\n\n".join([
@@ -72,12 +84,51 @@ SYSTEM_INSTRUCTION = "\n\n".join([
 ])
 
 
-def build_system_instruction(jar_jar: bool = False) -> str:
-    """Compose the full system instruction, optionally with Jar Jar style."""
-    parts = [ROLE, SEARCH_SITES, EVENTS_INSTRUCTION, JSON_SCHEMA, JSON_RULES, RECENCY_RULE]
+def _build_json_rules(news_description: str, effective_domains: str) -> str:
+    """Build the JSON rules block with the given news headline description and domains."""
+    return (
+        "Rules:\n"
+        f"- news: 2-3 items max. Each headline should be {news_description}.\n"
+        "- events: 0-2 items. Include earnings dates, ex-dividend dates, investor days, etc.\n"
+        "- date: Always YYYY-MM-DD format.\n"
+        f"- source_url: MUST be from {effective_domains} ONLY.\n"
+        "- source_name: Human-readable site name.\n"
+        "- If no news found, set news to an empty array [].\n"
+        "- If no events found, set events to an empty array [].\n"
+        "- Do NOT include any text outside the JSON object."
+    )
+
+
+def build_system_instruction(
+    jar_jar: bool = False, domains: frozenset[str] | None = None
+) -> str:
+    """Compose the full system instruction, optionally with Jar Jar style or custom domains."""
+    effective_domains = domains_str_from(domains) if domains is not None else domains_str()
+    search_sites = (
+        f"Search {effective_domains} "
+        "for news about the given stock ticker."
+    )
+    news_description = (
+        "a full paragraph summarising the article in detail" if jar_jar
+        else "Bloomberg-terminal terse"
+    )
+    json_rules = _build_json_rules(news_description, effective_domains)
+    parts = [ROLE, search_sites, EVENTS_INSTRUCTION, JSON_SCHEMA, json_rules, RECENCY_RULE]
     if jar_jar:
         parts.append(JAR_JAR_STYLE)
     return "\n\n".join(parts)
+
+
+def build_input_prompt(ticker: str, date: str, domains: frozenset[str] | None = None) -> str:
+    """Build the user input prompt, optionally using custom domains."""
+    effective_domains = domains_str_from(domains) if domains is not None else domains_str()
+    return (
+        f"Search for news about {ticker} stock from {date} on "
+        f"{effective_domains}. "
+        f"Only include articles published on {date} or within 1-2 days of it. "
+        "Do NOT include old or outdated articles. "
+        f"Also check for any upcoming events (earnings, dividends, etc.) for {ticker}."
+    )
 
 # -- User/input prompt templates -------------------------------------------
 
